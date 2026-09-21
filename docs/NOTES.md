@@ -76,13 +76,35 @@ Consequences baked into this deploy:
 - Postgres (`postgres:16-alpine`, already cached on that host) bound to
   `127.0.0.1:5434` only, named volume `callit_pgdata` — never the public
   interface.
-- App listens on `127.0.0.1:8095` (checked free via `ss -tlnp` at setup
-  time) — no domain, no TLS yet. **The Flutter app needs an iOS ATS
-  exception / Android cleartext-traffic allowance** pointed at
-  `http://62.171.156.198:8095` to call it during dev. Real fix (domain +
-  certbot) needs `ojogu` or the user's own sudo password later.
+- App listens on `*:8095` (all interfaces) — no domain, no TLS yet. **The
+  Flutter app needs an iOS ATS exception / Android cleartext-traffic
+  allowance** pointed at `http://62.171.156.198:8095` to call it during dev.
+  Real fix (domain + certbot) needs `ojogu` or the user's own sudo password
+  later.
+- **Port 8095 is not reachable from outside the VPS yet**, even though the
+  app is listening on all interfaces and answers on `127.0.0.1:8095` fine.
+  `curl` from off-box times out. Almost certainly a host firewall
+  (`ufw`/`iptables`) or the hosting provider's network-level security group
+  — both need root/provider-console access this session doesn't have. The
+  full pipeline is verified working (see below) via SSH against
+  `127.0.0.1:8095` on the box itself; **the Flutter app won't be able to
+  reach it until this is opened.** Ask whoever has root or the provider
+  dashboard to allow inbound TCP/8095 (or better, do the domain+nginx+TLS
+  setup properly and only expose 443).
 - Before adding anything else to this box, re-check headroom:
   `ssh eric 'df -h /; free -h'`.
+
+## Verified (2026-09-21)
+
+`scripts/smoke.sh` run against the live deployed service (`127.0.0.1:8095`
+on the VPS, mock Panta/AI/email) — every step passed: register → OTP verify
+→ login → AI compile → community create → market create (quote/build/
+register) → share-card render (confirmed a real 1200×630 PNG, ~32KB,
+correctly styled to brand) → buy (quote/build/submit/verify) → trade report
+→ positions → win-claim build → creator-fee-claim build → creator dashboard
+→ community leaderboard. `pm2 save`d so it should survive a process crash;
+still needs a one-time interactive `pm2 startup` (needs sudo) to survive a
+full VPS reboot — not yet done.
 
 ## Build order followed
 
