@@ -76,21 +76,40 @@ Consequences baked into this deploy:
 - Postgres (`postgres:16-alpine`, already cached on that host) bound to
   `127.0.0.1:5434` only, named volume `callit_pgdata` — never the public
   interface.
-- App listens on `*:8095` (all interfaces) — no domain, no TLS yet. **The
-  Flutter app needs an iOS ATS exception / Android cleartext-traffic
-  allowance** pointed at `http://62.171.156.198:8095` to call it during dev.
-  Real fix (domain + certbot) needs `ojogu` or the user's own sudo password
-  later.
-- **Port 8095 is not reachable from outside the VPS yet**, even though the
-  app is listening on all interfaces and answers on `127.0.0.1:8095` fine.
-  `curl` from off-box times out. Almost certainly a host firewall
+- App listens on `*:8095` (all interfaces) — no domain, no TLS yet.
+- **Public hostname: `quirky-comet.62-171-156-198.sslip.io`** (chosen
+  2026-09-21, at the user's request — a random label, not
+  `62-171-156-198.sslip.io` or anything styled like this box's other
+  project names, so it's not guessable/scannable alongside them). sslip.io
+  resolves any label in front of a dash-encoded IP to that IP — confirmed
+  via `dig`. This is `PUBLIC_URL` in `.env` (`deploy/setup-server.sh`'s
+  `PUBLIC_HOSTNAME` constant) and is what share-card links point at. It's
+  **still plain HTTP on :8095** — see the two blockers below before this is
+  a real HTTPS endpoint.
+- **The Flutter app needs an iOS ATS exception / Android cleartext-traffic
+  allowance** pointed at this hostname to call it during dev, until TLS is
+  set up.
+- **Port 8095 is not reachable from outside the VPS**, even though the app
+  listens on all interfaces and answers on `127.0.0.1:8095` fine. `curl`
+  from off-box times out — same result via the sslip.io hostname (expected,
+  it's just DNS; the block is on the port). Almost certainly a host firewall
   (`ufw`/`iptables`) or the hosting provider's network-level security group
   — both need root/provider-console access this session doesn't have. The
   full pipeline is verified working (see below) via SSH against
   `127.0.0.1:8095` on the box itself; **the Flutter app won't be able to
-  reach it until this is opened.** Ask whoever has root or the provider
-  dashboard to allow inbound TCP/8095 (or better, do the domain+nginx+TLS
-  setup properly and only expose 443).
+  reach it until this is opened.**
+- **To get this onto real HTTPS** (recommended over just opening :8095),
+  whoever has root/`ojogu` needs to, once:
+  1. Add an nginx server block for `quirky-comet.62-171-156-198.sslip.io`
+     that reverse-proxies to `127.0.0.1:8095` (nginx already owns 80/443 on
+     this box — no new ports to open).
+  2. `certbot --nginx -d quirky-comet.62-171-156-198.sslip.io` (HTTP-01
+     challenge works fine against a sslip.io hostname — that's the whole
+     point of using it here).
+  3. Update `.env`'s `PUBLIC_URL` to `https://quirky-comet.62-171-156-198.sslip.io`
+     (no port) and `pm2 restart callit-api --update-env`.
+  After that, no ATS exception / cleartext config is needed on either
+  mobile OS, and :8095 never has to be opened publicly at all.
 - Before adding anything else to this box, re-check headroom:
   `ssh eric 'df -h /; free -h'`.
 

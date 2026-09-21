@@ -16,6 +16,16 @@ CONTAINER_NAME=callit-postgres
 VOLUME_NAME=callit_pgdata
 PG_PORT=5434
 
+# A deliberately random, non-obvious sslip.io hostname (not
+# "62-171-156-198.sslip.io", which is guessable/scannable, and not styled
+# like this box's other project names) resolving to this VPS's IPv4 — so we
+# have a real hostname for TLS later without needing our own DNS. sslip.io
+# resolves ANY label in front of a dash-encoded IP to that IP; the label
+# itself is arbitrary. See docs/NOTES.md for why it's still plain HTTP today
+# (port 80/443 are already owned by system nginx, which we can't configure
+# without sudo).
+PUBLIC_HOSTNAME=quirky-comet.62-171-156-198.sslip.io
+
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   echo "→ Starting Postgres container on 127.0.0.1:${PG_PORT}..."
   docker run -d \
@@ -35,7 +45,7 @@ if [ ! -f ~/callit-backend/.env ]; then
   echo "→ .env missing — copying .env.example. Fill in real secrets before the first real deploy (PANTA_MOCK/AI_MOCK can stay true until then)."
   cp ~/callit-backend/.env.example ~/callit-backend/.env
   sed -i "s#^DATABASE_URL=.*#DATABASE_URL=postgres://callit:secret@127.0.0.1:${PG_PORT}/callit_db?sslmode=disable#" ~/callit-backend/.env
-  sed -i "s#^PUBLIC_URL=.*#PUBLIC_URL=http://$(curl -s ifconfig.me):8095#" ~/callit-backend/.env
+  sed -i "s#^PUBLIC_URL=.*#PUBLIC_URL=http://${PUBLIC_HOSTNAME}:8095#" ~/callit-backend/.env
 fi
 
 echo "→ pm2 process..."
