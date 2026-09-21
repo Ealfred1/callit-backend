@@ -4,6 +4,54 @@ Running log of what was built, why, and what a future agent/dev should
 re-verify before trusting it. Update this as work continues — it's the "how
 we got here" that `git log` alone doesn't reconstruct.
 
+## Public access (2026-09-21)
+
+Confirmed by testing (not just inferring from one blocked port): **only
+80/443 pass the `eric` VPS's firewall, for every service on that box** —
+tried several other already-in-use ports (8002, 8003, 8170, 5555, 3000)
+from outside and all timed out identically to 8095. So this was never an
+"open port 8095" fix; every app on that box that's reachable externally
+gets there through the system nginx on 80/443, which needs root to touch
+(owned by `ojogu`).
+
+Unblocked without needing anyone's sudo: `cloudflared` (downloaded straight
+from GitHub releases, no account needed for a "quick tunnel") makes an
+*outbound* connection from the VPS to Cloudflare's edge, which is never
+firewalled. Running as a second pm2 process (`callit-tunnel`,
+`cloudflared tunnel --url http://localhost:8095`) alongside `callit-api`.
+Current public URL — **`https://gas-training-stress-pencil.trycloudflare.com`**
+— is what `PUBLIC_URL` in `.env` actually points at now (real HTTPS, works
+from anywhere, confirmed with curl from outside). `docs/openapi.yaml`'s
+sslip.io server entry is left in as the intended long-term address.
+
+**This URL is not stable.** Quick tunnels (no Cloudflare account) get a new
+random `*.trycloudflare.com` hostname every time `cloudflared` restarts —
+crash, `pm2 restart`, or a VPS reboot all change it, which silently breaks
+every share-card link generated before that. If `pm2 logs callit-tunnel`
+shows a new URL, `PUBLIC_URL` in `.env` needs updating to match (then a
+`pm2 restart callit-api`, not `--update-env` — see the pm2-env bug below).
+Fixing this for real means either the nginx+certbot path onto
+`quirky-comet.62-171-156-198.sslip.io` (needs root, steps below unchanged),
+or a *named* Cloudflare Tunnel (needs a free Cloudflare account + `cloudflared
+tunnel login`, gets a permanent hostname — reasonable next step if getting
+root stays blocked).
+
+**Bug found while doing this: editing `.env` on the server and restarting
+wasn't taking effect.** Changed `PUBLIC_URL` to the tunnel URL, restarted,
+and share-card links still pointed at the old sslip.io address. Root cause:
+`deploy.sh` used to `source .env` into its shell before the very first `pm2
+start`, and pm2 snapshots a process's OS environment at start time and
+keeps reusing it across `pm2 restart` (even with `--update-env`, which only
+refreshes from *that command's own* shell environment, not the file) —
+so every var from that first deploy got baked in permanently, and
+`godotenv.Load()` never overrides an already-set OS var, so the app kept
+reading the stale pm2-cached value over the actual file. Fixed: `internal/config/config.go`
+now calls `godotenv.Overload()` (file always wins), `cmd/migrate` loads
+`.env` itself instead of relying on the deploy shell to source it, and
+`deploy.sh` no longer sources `.env` into the shell at all. Confirmed fixed
+by checking `pm2 env <id>` before/after — the stale `PUBLIC_URL` is gone
+from pm2's cached env entirely now.
+
 ## Panta API — confirmed vs inferred
 
 Pulled directly from `docs.panta.market`'s official `llms.txt` index
