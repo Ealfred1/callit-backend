@@ -16,6 +16,9 @@ REMOTE_DIR="~/callit-backend"
 echo "→ Deploying to $VPS..."
 ssh "$VPS" "
   set -e
+  # non-interactive SSH doesn't source ~/.zshrc, so pm2 (installed via
+  # pnpm) isn't on PATH by default — add it explicitly.
+  export PATH=\"\$HOME/.local/share/pnpm:\$PATH\"
   if [ ! -d $REMOTE_DIR/.git ]; then
     git clone git@github.com:Ealfred1/callit-backend.git $REMOTE_DIR
   fi

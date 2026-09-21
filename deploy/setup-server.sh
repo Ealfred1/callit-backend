@@ -10,6 +10,7 @@
 # of pulling a fresh one, and binds Postgres to 127.0.0.1 only — never the
 # public interface.
 set -e
+export PATH="$HOME/.local/share/pnpm:$PATH" # non-interactive shells don't source ~/.zshrc
 
 CONTAINER_NAME=callit-postgres
 VOLUME_NAME=callit_pgdata
