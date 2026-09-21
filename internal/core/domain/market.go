@@ -9,8 +9,8 @@ import (
 type CreateSessionStatus string
 
 const (
-	CreateSessionStatusQuoted    CreateSessionStatus = "quoted"
-	CreateSessionStatusBuilt     CreateSessionStatus = "built"
+	CreateSessionStatusQuoted     CreateSessionStatus = "quoted"
+	CreateSessionStatusBuilt      CreateSessionStatus = "built"
 	CreateSessionStatusRegistered CreateSessionStatus = "registered"
 )
 

@@ -46,14 +46,14 @@ type CreateQuoteRequest struct {
 }
 
 type CreateQuoteResponse struct {
-	CreateID                string `json:"createId"`
-	ExpectedEventPda        string `json:"expectedEventPda"`
-	PaymentUsdc             string `json:"paymentUsdc"` // base units, 6 decimals
-	LiquidityInjectionUsdc  string `json:"liquidityInjectionUsdc"`
-	PlatformRevenueUsdc     string `json:"platformRevenueUsdc"`
-	MarketType              string `json:"marketType"`
-	ExpiresAt                string `json:"expiresAt"` // ISO-8601, ~5 min out
-	BlockhashExpiryHintSec   int    `json:"blockhashExpiryHintSec"`
+	CreateID               string `json:"createId"`
+	ExpectedEventPda       string `json:"expectedEventPda"`
+	PaymentUsdc            string `json:"paymentUsdc"` // base units, 6 decimals
+	LiquidityInjectionUsdc string `json:"liquidityInjectionUsdc"`
+	PlatformRevenueUsdc    string `json:"platformRevenueUsdc"`
+	MarketType             string `json:"marketType"`
+	ExpiresAt              string `json:"expiresAt"` // ISO-8601, ~5 min out
+	BlockhashExpiryHintSec int    `json:"blockhashExpiryHintSec"`
 }
 
 type CreateBuildRequest struct {
@@ -62,25 +62,25 @@ type CreateBuildRequest struct {
 }
 
 type CreateBuildDerived struct {
-	Event         string `json:"event"`
+	Event          string `json:"event"`
 	VaultAuthority string `json:"vaultAuthority"`
-	MarketConfig  string `json:"marketConfig"`
+	MarketConfig   string `json:"marketConfig"`
 }
 
 type CreateBuildResponse struct {
 	CreateID               string             `json:"createId"`
 	ExpectedEventPda       string             `json:"expectedEventPda"`
-	Transaction             string             `json:"transaction"` // base64 VersionedTransaction
-	RecentBlockhash         string             `json:"recentBlockhash"`
-	LastValidBlockHeight    int64              `json:"lastValidBlockHeight"`
-	BlockhashExpiryHintSec  int                `json:"blockhashExpiryHintSec"`
-	BuildFingerprint        string             `json:"buildFingerprint"`
-	PaymentUsdc              string             `json:"paymentUsdc"`
-	LiquidityInjectionUsdc   string             `json:"liquidityInjectionUsdc"`
-	PlatformRevenueUsdc      string             `json:"platformRevenueUsdc"`
-	MarketType                string             `json:"marketType"`
-	Derived                    CreateBuildDerived `json:"derived"`
-	ExpiresAt                   string             `json:"expiresAt"`
+	Transaction            string             `json:"transaction"` // base64 VersionedTransaction
+	RecentBlockhash        string             `json:"recentBlockhash"`
+	LastValidBlockHeight   int64              `json:"lastValidBlockHeight"`
+	BlockhashExpiryHintSec int                `json:"blockhashExpiryHintSec"`
+	BuildFingerprint       string             `json:"buildFingerprint"`
+	PaymentUsdc            string             `json:"paymentUsdc"`
+	LiquidityInjectionUsdc string             `json:"liquidityInjectionUsdc"`
+	PlatformRevenueUsdc    string             `json:"platformRevenueUsdc"`
+	MarketType             string             `json:"marketType"`
+	Derived                CreateBuildDerived `json:"derived"`
+	ExpiresAt              string             `json:"expiresAt"`
 }
 
 type RegisterMarketRequest struct {
@@ -108,32 +108,32 @@ type ImageUploadSignResponse struct {
 // --- Catalog ---
 
 type MarketListItem struct {
-	MarketID           string   `json:"marketId"`
-	Category           Category `json:"category"`
-	Title              string   `json:"title"`
-	Description        *string  `json:"description"`
-	Images             []string `json:"images"`
-	Phase              string   `json:"phase"` // primary | secondary | resolved | cancelled
-	MarketType         string   `json:"marketType"`
-	StartTime          int64    `json:"startTime"`
-	EndTime            int64    `json:"endTime"`
-	ResolutionTime     int64    `json:"resolutionTime"`
-	Region             string   `json:"region"`
-	Resolved           bool     `json:"resolved"`
-	VolumeUsdc         string   `json:"volumeUsdc"`
-	CampaignID         *string  `json:"campaignId"`
-	YesPrice           *string  `json:"yesPrice"`
-	NoPrice            *string  `json:"noPrice"`
-	PrimaryYesPrice    *string  `json:"primaryYesPrice"`
-	PrimaryNoPrice     *string  `json:"primaryNoPrice"`
-	SecondaryYesPrice  *string  `json:"secondaryYesPrice"`
-	SecondaryNoPrice   *string  `json:"secondaryNoPrice"`
+	MarketID          string   `json:"marketId"`
+	Category          Category `json:"category"`
+	Title             string   `json:"title"`
+	Description       *string  `json:"description"`
+	Images            []string `json:"images"`
+	Phase             string   `json:"phase"` // primary | secondary | resolved | cancelled
+	MarketType        string   `json:"marketType"`
+	StartTime         int64    `json:"startTime"`
+	EndTime           int64    `json:"endTime"`
+	ResolutionTime    int64    `json:"resolutionTime"`
+	Region            string   `json:"region"`
+	Resolved          bool     `json:"resolved"`
+	VolumeUsdc        string   `json:"volumeUsdc"`
+	CampaignID        *string  `json:"campaignId"`
+	YesPrice          *string  `json:"yesPrice"`
+	NoPrice           *string  `json:"noPrice"`
+	PrimaryYesPrice   *string  `json:"primaryYesPrice"`
+	PrimaryNoPrice    *string  `json:"primaryNoPrice"`
+	SecondaryYesPrice *string  `json:"secondaryYesPrice"`
+	SecondaryNoPrice  *string  `json:"secondaryNoPrice"`
 }
 
 type MarketDetail struct {
 	MarketListItem
-	Status            string `json:"status"`
-	CreatedByPartner  bool   `json:"createdByPartner"`
+	Status           string `json:"status"`
+	CreatedByPartner bool   `json:"createdByPartner"`
 }
 
 type MarketListResponse struct {
@@ -160,15 +160,15 @@ type OrderQuoteRequest struct {
 }
 
 type OrderQuoteResponse struct {
-	QuoteID               string `json:"quoteId"`
+	QuoteID                string `json:"quoteId"`
 	MarketID               string `json:"marketId"`
-	Side                    Side   `json:"side"`
-	AmountUsdc               string `json:"amountUsdc"`
-	Shares                   string `json:"shares"`
-	AvgPrice                 string `json:"avgPrice"`
-	FeeUsdc                  string `json:"feeUsdc"`
-	ExpiresAt                 string `json:"expiresAt"` // ~90s out
-	BlockhashExpiryHintSec     int    `json:"blockhashExpiryHintSec"`
+	Side                   Side   `json:"side"`
+	AmountUsdc             string `json:"amountUsdc"`
+	Shares                 string `json:"shares"`
+	AvgPrice               string `json:"avgPrice"`
+	FeeUsdc                string `json:"feeUsdc"`
+	ExpiresAt              string `json:"expiresAt"` // ~90s out
+	BlockhashExpiryHintSec int    `json:"blockhashExpiryHintSec"`
 }
 
 type OrderBuildRequest struct {
@@ -185,8 +185,8 @@ type OrderInstructionAccount struct {
 }
 
 type OrderInstruction struct {
-	ProgramID string                     `json:"programId"`
-	Data      string                     `json:"data"` // base64
+	ProgramID string                    `json:"programId"`
+	Data      string                    `json:"data"` // base64
 	Accounts  []OrderInstructionAccount `json:"accounts"`
 }
 
@@ -197,20 +197,20 @@ type OrderBuildDerived struct {
 
 type OrderBuildResponse struct {
 	OrderID                string             `json:"orderId"`
-	QuoteID                 string             `json:"quoteId"`
-	Wallet                   string             `json:"wallet"`
-	MarketID                  string             `json:"marketId"`
-	Side                       Side               `json:"side"`
-	AmountUsdc                  string             `json:"amountUsdc"`
-	ExpectedShares                string             `json:"expectedShares"`
-	FeeUsdc                        string             `json:"feeUsdc"`
-	Status                          string             `json:"status"`
-	Instructions                     []OrderInstruction `json:"instructions"`
-	Derived                            OrderBuildDerived  `json:"derived"`
-	RecentBlockhash                     string             `json:"recentBlockhash"`
-	LastValidBlockHeight                  int64              `json:"lastValidBlockHeight"`
-	ExpiresAt                               string             `json:"expiresAt"`
-	BlockhashExpiryHintSec                    int                `json:"blockhashExpiryHintSec"`
+	QuoteID                string             `json:"quoteId"`
+	Wallet                 string             `json:"wallet"`
+	MarketID               string             `json:"marketId"`
+	Side                   Side               `json:"side"`
+	AmountUsdc             string             `json:"amountUsdc"`
+	ExpectedShares         string             `json:"expectedShares"`
+	FeeUsdc                string             `json:"feeUsdc"`
+	Status                 string             `json:"status"`
+	Instructions           []OrderInstruction `json:"instructions"`
+	Derived                OrderBuildDerived  `json:"derived"`
+	RecentBlockhash        string             `json:"recentBlockhash"`
+	LastValidBlockHeight   int64              `json:"lastValidBlockHeight"`
+	ExpiresAt              string             `json:"expiresAt"`
+	BlockhashExpiryHintSec int                `json:"blockhashExpiryHintSec"`
 }
 
 type OrderSubmitRequest struct {

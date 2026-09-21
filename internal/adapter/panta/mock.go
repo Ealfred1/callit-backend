@@ -77,7 +77,7 @@ func (c *mockClient) seedMarketLocked(marketID string) *domain.MarketDetail {
 		MarketListItem: domain.MarketListItem{
 			MarketID: marketID, Category: domain.CategoryOther, Title: "Mock market",
 			Images: []string{"https://res.cloudinary.com/demo/image/upload/mock.png"},
-			Phase: "primary", MarketType: "standard",
+			Phase:  "primary", MarketType: "standard",
 			StartTime: now, EndTime: now + 86400, ResolutionTime: now + 90000,
 			Region: "Global", VolumeUsdc: "0.00",
 			YesPrice: &yes, NoPrice: &no, PrimaryYesPrice: &yes, PrimaryNoPrice: &no,
@@ -171,10 +171,10 @@ func (c *mockClient) CreateBuild(ctx context.Context, req domain.CreateBuildRequ
 	}
 	return &domain.CreateBuildResponse{
 		CreateID: req.CreateID, ExpectedEventPda: c.nextID("evt"),
-		Transaction: base64.StdEncoding.EncodeToString([]byte("mock-versioned-transaction")),
+		Transaction:     base64.StdEncoding.EncodeToString([]byte("mock-versioned-transaction")),
 		RecentBlockhash: c.nextID("bh"), LastValidBlockHeight: 123456789, BlockhashExpiryHintSec: 60,
 		BuildFingerprint: c.nextID("fp"),
-		PaymentUsdc: "50000000", LiquidityInjectionUsdc: "10000000", PlatformRevenueUsdc: "40000000",
+		PaymentUsdc:      "50000000", LiquidityInjectionUsdc: "10000000", PlatformRevenueUsdc: "40000000",
 		MarketType: marketType,
 		Derived:    domain.CreateBuildDerived{Event: c.nextID("evt"), VaultAuthority: c.nextID("vault"), MarketConfig: c.nextID("cfg")},
 		ExpiresAt:  time.Now().Add(60 * time.Second).Format(time.RFC3339),
@@ -263,8 +263,8 @@ func (c *mockClient) OrderBuild(ctx context.Context, req domain.OrderBuildReques
 	return &domain.OrderBuildResponse{
 		OrderID: orderID, QuoteID: req.QuoteID, Wallet: req.Wallet, MarketID: quote.req.MarketID, Side: quote.req.Side,
 		AmountUsdc: quote.req.AmountUsdc, ExpectedShares: quote.shares, FeeUsdc: quote.feeUsdc, Status: "built",
-		Instructions: []domain.OrderInstruction{{ProgramID: c.nextID("prog"), Data: base64.StdEncoding.EncodeToString([]byte("mock-ix"))}},
-		Derived:      domain.OrderBuildDerived{Event: c.nextID("evt"), VaultAuthority: c.nextID("vault")},
+		Instructions:    []domain.OrderInstruction{{ProgramID: c.nextID("prog"), Data: base64.StdEncoding.EncodeToString([]byte("mock-ix"))}},
+		Derived:         domain.OrderBuildDerived{Event: c.nextID("evt"), VaultAuthority: c.nextID("vault")},
 		RecentBlockhash: c.nextID("bh"), LastValidBlockHeight: 123456789,
 		ExpiresAt: time.Now().Add(120 * time.Second).Format(time.RFC3339), BlockhashExpiryHintSec: 60,
 	}, nil
@@ -312,8 +312,8 @@ func (c *mockClient) ListPositions(ctx context.Context, wallet string) (*domain.
 func (c *mockClient) ClaimWin(ctx context.Context, req domain.ClaimRequest) (*domain.ClaimBuildResponse, error) {
 	return &domain.ClaimBuildResponse{
 		Outcome: domain.SideYes, WinningShares: "10.00",
-		Instructions: []domain.OrderInstruction{{ProgramID: c.nextID("prog"), Data: base64.StdEncoding.EncodeToString([]byte("mock-claim-ix"))}},
-		Derived:      domain.ClaimBuildDerived{WinClaim: c.nextID("wc"), PositionPda: c.nextID("pos"), VaultAuthority: c.nextID("vault")},
+		Instructions:    []domain.OrderInstruction{{ProgramID: c.nextID("prog"), Data: base64.StdEncoding.EncodeToString([]byte("mock-claim-ix"))}},
+		Derived:         domain.ClaimBuildDerived{WinClaim: c.nextID("wc"), PositionPda: c.nextID("pos"), VaultAuthority: c.nextID("vault")},
 		RecentBlockhash: c.nextID("bh"), LastValidBlockHeight: 123456789,
 	}, nil
 }

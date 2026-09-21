@@ -5,8 +5,10 @@
 package sharecard
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
+	"image/png"
 	"strings"
 
 	"github.com/fogleman/gg"
@@ -147,5 +149,9 @@ func Render(in CardInput) ([]byte, error) {
 	dc.SetColor(colorSlate)
 	dc.DrawString("Powered by Panta", 64, 600)
 
-	return encodePNG(dc)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, dc.Image()); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

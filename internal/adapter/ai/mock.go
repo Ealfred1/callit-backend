@@ -29,16 +29,16 @@ func (m *mockCompiler) Compile(ctx context.Context, pastedText string) (*ports.C
 
 	draft := &ports.CompiledDraft{
 		Question:              question,
-		ResolutionRule:         `Resolves YES if, by the resolution deadline, the outcome described ("` + preview + `") is confirmed true by the listed sources; NO otherwise.`,
-		SourcesOfTruth:          []string{"https://example.com/source-1"},
-		Category:                 "other",
-		Title:                     truncate(trimmed, 60),
-		Description:                truncate(trimmed, 200),
-		DurationHours:                24,
-		ResolutionBufferHours:          3,
-		MarketType:                       "standard",
-		EventInProgress:                    false,
-		Ambiguous:                            ambiguous,
+		ResolutionRule:        `Resolves YES if, by the resolution deadline, the outcome described ("` + preview + `") is confirmed true by the listed sources; NO otherwise.`,
+		SourcesOfTruth:        []string{"https://example.com/source-1"},
+		Category:              "other",
+		Title:                 truncate(trimmed, 60),
+		Description:           truncate(trimmed, 200),
+		DurationHours:         24,
+		ResolutionBufferHours: 3,
+		MarketType:            "standard",
+		EventInProgress:       false,
+		Ambiguous:             ambiguous,
 	}
 	if ambiguous {
 		draft.AmbiguityReason = "Too short to identify a checkable claim."

@@ -12,18 +12,18 @@ type Config struct {
 	DatabaseURL string
 	JWTSecret   string
 
-	PantaAPIBase      string
-	PantaAPIKey       string
-	PantaMock         bool
+	PantaAPIBase       string
+	PantaAPIKey        string
+	PantaMock          bool
 	PantaPrimaryFeeBps int // not published as a fixed value by Panta; PRD says "often 200bps" — confirm on live MarketConfig
 
 	AnthropicAPIKey string
 	AnthropicModel  string
 	AIMock          bool
 
-	ResendAPIKey       string
-	ResendSenderEmail  string
-	ResendSenderName   string
+	ResendAPIKey      string
+	ResendSenderEmail string
+	ResendSenderName  string
 
 	StaticDir string // where generated share-card PNGs are written/served from
 	PublicURL string // base URL this server is reachable at, for share links

@@ -11,10 +11,10 @@ import (
 // per community") so every community's trading volume can be rolled up
 // straight from Panta's own data — Callit never stores volume itself.
 type Community struct {
-	ID             uuid.UUID `json:"id"`
-	Name           string    `json:"name"`
-	Slug           string    `json:"slug"`
-	AttributionID  string    `json:"attributionId"`
-	CreatorUserID  uuid.UUID `json:"creatorUserId"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Slug          string    `json:"slug"`
+	AttributionID string    `json:"attributionId"`
+	CreatorUserID uuid.UUID `json:"creatorUserId"`
+	CreatedAt     time.Time `json:"createdAt"`
 }

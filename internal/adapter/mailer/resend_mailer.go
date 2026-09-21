@@ -14,10 +14,10 @@ import (
 // RESEND_API_KEY is set (see cmd/api/main.go), same swap pattern as
 // mollah-backend's Brevo/mock split.
 type resendEmailService struct {
-	apiKey       string
-	senderEmail  string
-	senderName   string
-	logger       *slog.Logger
+	apiKey      string
+	senderEmail string
+	senderName  string
+	logger      *slog.Logger
 }
 
 func NewResendEmailService(apiKey, senderEmail, senderName string, logger *slog.Logger) ports.EmailService {
@@ -25,10 +25,10 @@ func NewResendEmailService(apiKey, senderEmail, senderName string, logger *slog.
 }
 
 type resendPayload struct {
-	From    string `json:"from"`
+	From    string   `json:"from"`
 	To      []string `json:"to"`
-	Subject string `json:"subject"`
-	Html    string `json:"html"`
+	Subject string   `json:"subject"`
+	Html    string   `json:"html"`
 }
 
 func (r *resendEmailService) SendVerificationEmail(toEmail, code string) error {
