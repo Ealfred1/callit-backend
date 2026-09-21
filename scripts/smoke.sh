@@ -12,6 +12,12 @@ EMAIL="smoke-$(date +%s)@example.com"
 PASSWORD="a-strong-password"
 FAIL=0
 
+# How to read the OTP code straight from Postgres (mock mailer only logs it,
+# doesn't send it). Defaults to the local `make dev` docker-compose setup;
+# override for the VPS, where Postgres runs as a plain `docker run` container
+# named callit-postgres instead: PSQL_EXEC="docker exec -i callit-postgres psql -U callit -d callit_db"
+PSQL_EXEC="${PSQL_EXEC:-docker compose exec -T db psql -U callit -d callit_db}"
+
 step() { echo; echo "→ $1"; }
 ok() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAIL=1; }
@@ -28,7 +34,7 @@ res=$(req -X POST "$BASE/auth/register" -d "{\"name\":\"Smoke Test\",\"email\":\
 echo "$res" | jq -e .data.message > /dev/null && ok "registered $EMAIL" || fail "register: $res"
 
 step "Fetch OTP code from DB (mock mailer logs it, doesn't send it)"
-CODE=$(docker compose exec -T db psql -U callit -d callit_db -t -A -c "select code from verification_codes where email='$EMAIL'")
+CODE=$($PSQL_EXEC -t -A -c "select code from verification_codes where email='$EMAIL'")
 [ -n "$CODE" ] && ok "code: $CODE" || { fail "could not read code"; exit 1; }
 
 step "Verify"
