@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: Callit API
+  version: "1.0"
+  description: >
+    Server for Callit — turns a pasted headline into a live Panta prediction
+    market. Holds the Panta API key and the Anthropic key server-side and
+    proxies every Panta call, per the Callit PRD. Every response is one of
+    two envelopes: `{"data": ...}` on success, `{"error": {"code",
+    "message", "fields"}}` on failure. Auth is a bearer JWT from
+    `/auth/verify` or `/auth/login`.
+servers:
+  - url: http://localhost:8095/v1
+    description: local dev
+  - url: http://62.171.156.198:8095/v1
+    description: eric VPS (no TLS yet)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: INVALID_MARKET_PARAMS }
+            message: { type: string }
+            fields: { type: object, additionalProperties: { type: array, items: { type: string } } }
+  responses:
+    Error:
+      description: Unified error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+paths:
+  /auth/register:
+    post:
+      summary: Sign up (name + email + password) — sends a 6-digit email code
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: "Gideon Jones" }
+                email: { type: string, example: "gideon@example.com" }
+                password: { type: string, example: "at-least-8-chars" }
+      responses:
+        "200":
+          description: Code sent
+          content:
+            application/json:
+              example: { data: { message: "Verification code sent" } }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /auth/verify:
+    post:
+      summary: Confirm the 6-digit code — returns the real JWT
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string }
+                code: { type: string, example: "482913" }
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              example:
+                data:
+                  user: { id: "b1f5...", email: "gideon@example.com", name: "Gideon Jones", status: "ACTIVE" }
+                  token: "eyJhbGciOi..."
+        "401": { $ref: "#/components/responses/Error" }
+
+  /auth/login:
+    post:
+      summary: Log in with email + password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200": { description: OK }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /me:
+    get:
+      summary: Current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: OK }
+
+  /markets:
+    get:
+      summary: Market catalog (public) — PRD "Market feed and detail"
+      parameters:
+        - { name: category, in: query, schema: { type: string, enum: [sports, crypto, politics, entertainment, finance, science, world, other] } }
+        - { name: status, in: query, schema: { type: string, enum: [primary, secondary, resolved, cancelled] } }
+        - { name: createdBy, in: query, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 50 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                data:
+                  items:
+                    - marketId: "mkt_mock000001"
+                      category: crypto
+                      title: "ETH above 5k by Friday?"
+                      phase: primary
+                      marketType: standard
+                      startTime: 1767225600
+                      endTime: 1767229200
+                      resolutionTime: 1767230000
+                      volumeUsdc: "0.00"
+                      yesPrice: null
+                      noPrice: null
+                  nextCursor: null
+
+  /markets/{id}:
+    get:
+      summary: Market detail with live prices
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                data: { marketId: "mkt_mock000001", category: crypto, title: "ETH above 5k by Friday?", yesPrice: "0.52", noPrice: "0.48", phase: primary, status: open }
+
+  /markets/{id}/trades:
+    get:
+      summary: Catalog trade tape for a market
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+
+  /categories:
+    get:
+      summary: The fixed 8-value category enum
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example: { data: ["sports", "crypto", "politics", "entertainment", "finance", "science", "world", "other"] }
+
+  /ai/compile:
+    post:
+      summary: Step 1 of the create flow — paste text, get a compiled draft + timestamps
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [text], properties: { text: { type: string, maxLength: 4000 } } }
+      responses:
+        "200":
+          description: OK — review this before calling /markets/create/quote
+          content:
+            application/json:
+              example:
+                data:
+                  draft:
+                    question: "Will the Lakers beat the Celtics on Friday?"
+                    resolutionRule: "Resolves YES if the official NBA box score on nba.com shows a Lakers win in the game played 2026-09-26."
+                    sourcesOfTruth: ["https://www.nba.com/game/lal-vs-bos-2026..."]
+                    category: sports
+                    title: "Lakers beat Celtics?"
+                    description: "Friday night rematch."
+                    durationHours: 6
+                    resolutionBufferHours: 2
+                    marketType: standard
+                    eventInProgress: false
+                    ambiguous: false
+                  startTime: 1767229230
+                  endTime: 1767250830
+                  resolutionTime: 1767258030
+        "400": { $ref: "#/components/responses/Error" }
+
+  /markets/create/image-upload:
+    post:
+      summary: Get a scoped Cloudinary signature for the market image
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { uploadUrl: "https://api.cloudinary.com/v1_1/mock-cloud/image/upload", publicId: "pub_mock000001", expiresAt: "2026-09-21T15:05:00Z", fields: { api_key: "mock", timestamp: "1767225600", signature: "mock-signature" } }
+
+  /markets/create/quote:
+    post:
+      summary: Quote the USDC creation fee — this is Panta's own validator + the ambiguity/fee check before spending anything
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wallet: { type: string }
+                question: { type: string, maxLength: 512 }
+                resolutionRule: { type: string, maxLength: 2048 }
+                sourcesOfTruth: { type: array, items: { type: string }, maxItems: 20 }
+                category: { type: string }
+                startTime: { type: integer }
+                endTime: { type: integer }
+                resolutionTime: { type: integer }
+                imageUrl: { type: string }
+                marketType: { type: string, enum: [standard, breaking] }
+                eventInProgress: { type: boolean }
+                communityId: { type: string, description: "Optional — attributes the eventual market to a Callit community" }
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { createId: "cr_mock000001", expectedEventPda: "evt_mock000002", paymentUsdc: "50000000", liquidityInjectionUsdc: "10000000", platformRevenueUsdc: "40000000", marketType: standard, expiresAt: "2026-09-21T15:05:00Z", blockhashExpiryHintSec: 60 }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /markets/create/build:
+    post:
+      summary: Build the unsigned create transaction from a quote
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [createId], properties: { createId: { type: string }, wallet: { type: string } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { createId: "cr_mock000001", transaction: "bW9jay12ZXJzaW9uZWQtdHJhbnNhY3Rpb24=", recentBlockhash: "bh_mock000003", lastValidBlockHeight: 123456789, blockhashExpiryHintSec: 60 }
+
+  /markets/create/register:
+    post:
+      summary: Confirm the on-chain create — market goes live
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [createId, signature], properties: { createId: { type: string }, signature: { type: string } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { createId: "cr_mock000001", marketId: "mkt_mock000004", status: confirmed, signature: "5VEJv1R...", category: sports, title: "Lakers beat Celtics?", images: ["https://res.cloudinary.com/..."] }
+
+  /orders/quote:
+    post:
+      summary: Simulate a fill + fee, open a ~90s quote session
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wallet, marketId, side, amountUsdc]
+              properties:
+                wallet: { type: string }
+                marketId: { type: string }
+                side: { type: string, enum: [yes, no] }
+                amountUsdc: { type: string, example: "20.00" }
+                communityId: { type: string, description: "Optional — resolved server-side to the community's attribution id" }
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { quoteId: "qt_mock000005", marketId: "mkt_mock000004", side: yes, amountUsdc: "20.00", shares: "38.42", avgPrice: "0.520800", feeUsdc: "0.40", expiresAt: "2026-09-21T15:06:30Z" }
+
+  /orders/build:
+    post:
+      summary: Build unsigned buy instructions from a live quote
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [quoteId, wallet], properties: { quoteId: { type: string }, wallet: { type: string }, communityId: { type: string }, maxSlippageBps: { type: integer, default: 100, maximum: 5000 } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                data: { orderId: "ord_mock000006", quoteId: "qt_mock000005", status: built, expectedShares: "38.42", feeUsdc: "0.40", recentBlockhash: "bh_mock000007" }
+        "404":
+          description: QUOTE_STALE — curve moved beyond maxSlippageBps; re-quote
+          content:
+            application/json:
+              example: { error: { code: QUOTE_STALE, message: "Unknown or expired quoteId" } }
+
+  /orders/submit:
+    post:
+      summary: Register the broadcast signature (fire-and-forget, idempotent on orderId+signature)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [orderId, signature], properties: { orderId: { type: string }, signature: { type: string } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { orderId: "ord_mock000006", status: submitted, signature: "5VEJv1R..." } }
+
+  /orders/verify:
+    post:
+      summary: Poll order status (built/submitted/confirmed/failed/expired)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [orderId], properties: { orderId: { type: string }, signature: { type: string } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { orderId: "ord_mock000006", status: confirmed, signature: "5VEJv1R...", marketId: "mkt_mock000004", side: yes, amountUsdc: 20 } }
+
+  /positions:
+    get:
+      summary: Wallet holdings — PRD "Positions and win claim"
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: wallet, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { wallet: "Buyer1111...", positions: [{ marketId: "mkt_mock000004", side: yes, shares: "38.42", phase: primary, claimable: false, claimed: false, outcome: null }] } }
+
+  /claims/win:
+    post:
+      summary: Unsigned win-claim instructions for a resolved market
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [wallet, marketId], properties: { wallet: { type: string }, marketId: { type: string } } }
+      responses: { "200": { description: OK } }
+
+  /claims/creator-fees:
+    post:
+      summary: Unsigned creator-fee-claim instructions for a graduated market
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [wallet, marketId], properties: { wallet: { type: string }, marketId: { type: string } } }
+      responses: { "200": { description: OK } }
+
+  /trades/report:
+    post:
+      summary: Verify + attribute an on-chain buy or win claim
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signature, wallet, marketId]
+              properties: { signature: { type: string }, wallet: { type: string }, marketId: { type: string }, quoteId: { type: string }, communityId: { type: string } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { signature: "5VEJv1R...", status: processed, marketId: "mkt_mock000004", wallet: "Buyer1111...", side: yes, kind: buy } }
+
+  /trades/{signature}:
+    get:
+      summary: Attribution/confirmation status for a signature
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: signature, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+
+  /communities:
+    post:
+      summary: Create a community — mints a slug + attribution id
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string, example: "State U Wildcats" } } }
+      responses:
+        "201":
+          content:
+            application/json:
+              example: { data: { id: "b3d1...", name: "State U Wildcats", slug: "state-u-wildcats", attributionId: "cty_state-u-wildcats", creatorUserId: "b1f5..." } }
+    get:
+      summary: Leaderboard — every community + live volume, computed by summing its markets' volumeUsdc from Panta
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { items: [{ id: "b3d1...", name: "State U Wildcats", marketCount: 3, volumeUsdc: 812.5 }] } }
+
+  /communities/{id}:
+    get:
+      summary: One community + its markets + live volume
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+
+  /me/markets:
+    get:
+      summary: Creator dashboard — the caller's own markets, local metadata + live Panta price/volume per market
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: OK } }
+
+  /share-card:
+    post:
+      summary: Render + store the OG card for a market (called right after register)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [marketId], properties: { marketId: { type: string } } }
+      responses:
+        "200":
+          content:
+            application/json:
+              example: { data: { imageUrl: "http://62.171.156.198:8095/static/share-cards/mkt_mock000004.png", deepLink: "callit://market/mkt_mock000004" } }
+
+  /share/{marketId}:
+    get:
+      summary: Public HTML with OG tags, for WhatsApp/X/Telegram link unfurling — renders the card on first hit if not pre-warmed
+      parameters: [{ name: marketId, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: HTML page
+          content:
+            text/html: {}

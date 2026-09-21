@@ -1,0 +1,23 @@
+# Local dev only. In production (see deploy/) this same postgres:16-alpine
+# image runs directly via `docker run` on the VPS, bound to 127.0.0.1:5434 —
+# not through this compose file, and with no host port exposed publicly.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: callit
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: callit_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - callit_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U callit -d callit_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  callit_pgdata:
