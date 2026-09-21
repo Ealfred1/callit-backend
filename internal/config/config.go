@@ -30,7 +30,15 @@ type Config struct {
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
+	// Overload, not Load: pm2 snapshots a process's OS environment at
+	// `pm2 start` time and keeps reusing it across `pm2 restart`. deploy.sh
+	// used to `source .env` into the shell before the first `pm2 start`, so
+	// every var from that first deploy got baked into pm2's cached env —
+	// godotenv.Load() never overrides an already-set OS var, so editing
+	// .env and restarting silently kept using the stale value (caught when
+	// PUBLIC_URL changes on the server didn't take effect). Overload makes
+	// the file always win, matching what "edit .env, restart" should do.
+	if err := godotenv.Overload(); err != nil {
 		log.Println("No .env file found — reading from environment")
 	}
 

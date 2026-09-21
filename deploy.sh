@@ -30,11 +30,15 @@ ssh "$VPS" "
   go build -o bin/migrate ./cmd/migrate
 
   echo '→ Running migrations...'
-  set -a; source .env; set +a
   ./bin/migrate
 
   echo '→ Restarting via pm2...'
-  pm2 restart callit-api --update-env || pm2 start bin/callit-api --name callit-api
+  # Not --update-env: pm2 only refreshes from *this shell's* exported env,
+  # which doesn't have .env sourced into it (deliberately — that's what
+  # baked stale values into pm2's cached env before, see
+  # internal/config/config.go). The binary reads .env itself on every
+  # start via godotenv, so a plain restart always picks up the current file.
+  pm2 restart callit-api || pm2 start bin/callit-api --name callit-api
   pm2 save
 "
 
