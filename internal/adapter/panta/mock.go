@@ -46,17 +46,26 @@ type mockOrder struct {
 }
 
 func NewMockClient() ports.PantaClient {
-	return &mockClient{
+	c := &mockClient{
 		sessions: map[string]*mockCreateSession{},
 		quotes:   map[string]*mockQuote{},
 		orders:   map[string]*mockOrder{},
 		markets:  map[string]*domain.MarketDetail{},
 	}
+	// Seeded from wall-clock nanoseconds, not 0: create_sessions/market_meta
+	// in Postgres persist across restarts, but this map doesn't — starting
+	// the sequence over from cr_mock000001 every restart collided with the
+	// still-there create_sessions primary key from the previous run (hit
+	// while re-running scripts/smoke.sh after a redeploy). Nanosecond seed
+	// makes that practically impossible without needing real uniqueness
+	// guarantees this mock doesn't need to care about otherwise.
+	c.seq.Store(time.Now().UnixNano())
+	return c
 }
 
 func (c *mockClient) nextID(prefix string) string {
 	n := c.seq.Add(1)
-	return fmt.Sprintf("%s_mock%06d", prefix, n)
+	return fmt.Sprintf("%s_mock%d", prefix, n)
 }
 
 func notFound(code, msg string) error {
