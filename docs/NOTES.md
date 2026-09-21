@@ -125,6 +125,27 @@ correctly styled to brand) → buy (quote/build/submit/verify) → trade report
 still needs a one-time interactive `pm2 startup` (needs sudo) to survive a
 full VPS reboot — not yet done.
 
+Two real bugs found by testing against the live deploy (not caught by
+`go vet`/`go build`, both fixed same day):
+
+- **Unauthorized requests returned a bare 500, not the unified 401
+  envelope.** `JWTMiddleware` returned `respond.Unauthorized(...)` directly
+  — that just constructs an `*AppError`, it doesn't write a response. Since
+  nothing had written to `c` yet, Echo's default error handler took over and
+  rendered its own generic `{"message":"Internal Server Error"}` shape.
+  `scripts/smoke.sh` never caught it because every call in it sends a valid
+  token. Fixed by routing through `respond.FromError`, and added
+  `e.HTTPErrorHandler = respond.GlobalErrorHandler` as a blanket safety net
+  so any future bare-error-return still gets the unified envelope. Added an
+  explicit "no token → 401 envelope" case to `scripts/smoke.sh` so this
+  can't silently regress.
+- **Mock Panta client's sequential IDs collided across process restarts.**
+  `cr_mock000001` etc. started over from 0 on every `NewMockClient()` call,
+  but `create_sessions`/`market_meta` in Postgres persist across restarts —
+  re-running the smoke test after a redeploy hit `duplicate key value
+  violates unique constraint "create_sessions_pkey"`. Fixed by seeding the
+  sequence from `time.Now().UnixNano()` instead of 0.
+
 ## Build order followed
 
 1. Domain types, ports, config, migrations, `cmd/migrate`, `respond` envelope.
