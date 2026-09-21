@@ -15,6 +15,28 @@ servers:
   - url: http://quirky-comet.62-171-156-198.sslip.io:8095/v1
     description: eric VPS (no TLS yet, port not yet opened externally — see docs/NOTES.md)
 
+tags:
+  - name: Auth
+    description: Sign up, verify, log in. Everything else needs the returned bearer JWT.
+  - name: Markets
+    description: Public catalog reads — PRD "Market feed and detail".
+  - name: AI Compiler
+    description: Paste text, get a Panta-shaped draft back — step 1 of the create flow.
+  - name: Create Market
+    description: Image upload → quote → build → register. Quote is Panta's own validator + the ambiguity/fee check before anything is spent.
+  - name: Orders
+    description: The buy flow — quote → build → submit → verify.
+  - name: Positions & Claims
+    description: Wallet holdings, win claims, creator-fee claims.
+  - name: Trades
+    description: Attribution — report a broadcast signature, check its status.
+  - name: Communities
+    description: Per-community attribution + leaderboard.
+  - name: Creator Dashboard
+    description: A creator's own markets.
+  - name: Share Cards
+    description: OG image generation + the public link-unfurl page.
+
 components:
   securitySchemes:
     bearerAuth:
@@ -41,6 +63,7 @@ components:
 paths:
   /auth/register:
     post:
+      tags: [Auth]
       summary: Sign up (name + email + password) — sends a 6-digit email code
       requestBody:
         content:
@@ -62,6 +85,7 @@ paths:
 
   /auth/verify:
     post:
+      tags: [Auth]
       summary: Confirm the 6-digit code — returns the real JWT
       requestBody:
         content:
@@ -85,6 +109,7 @@ paths:
 
   /auth/login:
     post:
+      tags: [Auth]
       summary: Log in with email + password
       requestBody:
         content:
@@ -101,6 +126,7 @@ paths:
 
   /me:
     get:
+      tags: [Auth]
       summary: Current user
       security: [{ bearerAuth: [] }]
       responses:
@@ -108,6 +134,7 @@ paths:
 
   /markets:
     get:
+      tags: [Markets]
       summary: Market catalog (public) — PRD "Market feed and detail"
       parameters:
         - { name: category, in: query, schema: { type: string, enum: [sports, crypto, politics, entertainment, finance, science, world, other] } }
@@ -138,6 +165,7 @@ paths:
 
   /markets/{id}:
     get:
+      tags: [Markets]
       summary: Market detail with live prices
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
@@ -150,12 +178,14 @@ paths:
 
   /markets/{id}/trades:
     get:
+      tags: [Markets]
       summary: Catalog trade tape for a market
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "200": { description: OK } }
 
   /categories:
     get:
+      tags: [Markets]
       summary: The fixed 8-value category enum
       responses:
         "200":
@@ -166,6 +196,7 @@ paths:
 
   /ai/compile:
     post:
+      tags: [AI Compiler]
       summary: Step 1 of the create flow — paste text, get a compiled draft + timestamps
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -198,6 +229,7 @@ paths:
 
   /markets/create/image-upload:
     post:
+      tags: [Create Market]
       summary: Get a scoped Cloudinary signature for the market image
       security: [{ bearerAuth: [] }]
       responses:
@@ -209,6 +241,7 @@ paths:
 
   /markets/create/quote:
     post:
+      tags: [Create Market]
       summary: Quote the USDC creation fee — this is Panta's own validator + the ambiguity/fee check before spending anything
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -239,6 +272,7 @@ paths:
 
   /markets/create/build:
     post:
+      tags: [Create Market]
       summary: Build the unsigned create transaction from a quote
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -254,6 +288,7 @@ paths:
 
   /markets/create/register:
     post:
+      tags: [Create Market]
       summary: Confirm the on-chain create — market goes live
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -269,6 +304,7 @@ paths:
 
   /orders/quote:
     post:
+      tags: [Orders]
       summary: Simulate a fill + fee, open a ~90s quote session
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -292,6 +328,7 @@ paths:
 
   /orders/build:
     post:
+      tags: [Orders]
       summary: Build unsigned buy instructions from a live quote
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -312,6 +349,7 @@ paths:
 
   /orders/submit:
     post:
+      tags: [Orders]
       summary: Register the broadcast signature (fire-and-forget, idempotent on orderId+signature)
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -326,6 +364,7 @@ paths:
 
   /orders/verify:
     post:
+      tags: [Orders]
       summary: Poll order status (built/submitted/confirmed/failed/expired)
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -340,6 +379,7 @@ paths:
 
   /positions:
     get:
+      tags: [Positions & Claims]
       summary: Wallet holdings — PRD "Positions and win claim"
       security: [{ bearerAuth: [] }]
       parameters: [{ name: wallet, in: query, required: true, schema: { type: string } }]
@@ -351,6 +391,7 @@ paths:
 
   /claims/win:
     post:
+      tags: [Positions & Claims]
       summary: Unsigned win-claim instructions for a resolved market
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -361,6 +402,7 @@ paths:
 
   /claims/creator-fees:
     post:
+      tags: [Positions & Claims]
       summary: Unsigned creator-fee-claim instructions for a graduated market
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -371,6 +413,7 @@ paths:
 
   /trades/report:
     post:
+      tags: [Trades]
       summary: Verify + attribute an on-chain buy or win claim
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -388,6 +431,7 @@ paths:
 
   /trades/{signature}:
     get:
+      tags: [Trades]
       summary: Attribution/confirmation status for a signature
       security: [{ bearerAuth: [] }]
       parameters: [{ name: signature, in: path, required: true, schema: { type: string } }]
@@ -395,6 +439,7 @@ paths:
 
   /communities:
     post:
+      tags: [Communities]
       summary: Create a community — mints a slug + attribution id
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -407,6 +452,7 @@ paths:
             application/json:
               example: { data: { id: "b3d1...", name: "State U Wildcats", slug: "state-u-wildcats", attributionId: "cty_state-u-wildcats", creatorUserId: "b1f5..." } }
     get:
+      tags: [Communities]
       summary: Leaderboard — every community + live volume, computed by summing its markets' volumeUsdc from Panta
       responses:
         "200":
@@ -416,18 +462,21 @@ paths:
 
   /communities/{id}:
     get:
+      tags: [Communities]
       summary: One community + its markets + live volume
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "200": { description: OK } }
 
   /me/markets:
     get:
+      tags: [Creator Dashboard]
       summary: Creator dashboard — the caller's own markets, local metadata + live Panta price/volume per market
       security: [{ bearerAuth: [] }]
       responses: { "200": { description: OK } }
 
   /share-card:
     post:
+      tags: [Share Cards]
       summary: Render + store the OG card for a market (called right after register)
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -438,10 +487,11 @@ paths:
         "200":
           content:
             application/json:
-              example: { data: { imageUrl: "http://62.171.156.198:8095/static/share-cards/mkt_mock000004.png", deepLink: "callit://market/mkt_mock000004" } }
+              example: { data: { imageUrl: "http://quirky-comet.62-171-156-198.sslip.io:8095/static/share-cards/mkt_mock000004.png", deepLink: "callit://market/mkt_mock000004" } }
 
   /share/{marketId}:
     get:
+      tags: [Share Cards]
       summary: Public HTML with OG tags, for WhatsApp/X/Telegram link unfurling — renders the card on first hit if not pre-warmed
       parameters: [{ name: marketId, in: path, required: true, schema: { type: string } }]
       responses:
