@@ -87,5 +87,31 @@ func FromError(c echo.Context, err error) error {
 		return Err(c, appErr.Status, appErr.Code, appErr.Message, appErr.Fields)
 	}
 
+	var echoErr *echo.HTTPError
+	if errors.As(err, &echoErr) {
+		msg, _ := echoErr.Message.(string)
+		if msg == "" {
+			msg = http.StatusText(echoErr.Code)
+		}
+		return Err(c, echoErr.Code, "HTTP_ERROR", msg, nil)
+	}
+
 	return Err(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+}
+
+// GlobalErrorHandler is registered as echo.Echo.HTTPErrorHandler (see
+// cmd/api/main.go) as a safety net: any error that reaches Echo without a
+// handler having already called FromError/Err itself (a route panic Recover
+// catches, Echo's own router 404/405, a future handler that forgets to go
+// through this package) still comes out as the same envelope instead of
+// Echo's bare default `{"message": "..."}` shape. This is what caught (and
+// now prevents regressing) the JWT middleware returning a bare *AppError
+// instead of writing it — see git history on auth_middleware.go.
+func GlobalErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+	if writeErr := FromError(c, err); writeErr != nil {
+		c.Logger().Error(writeErr)
+	}
 }

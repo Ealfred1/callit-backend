@@ -12,6 +12,7 @@ import (
 	"github.com/eric/callit-backend/internal/adapter/ai"
 	"github.com/eric/callit-backend/internal/adapter/handler"
 	authmw "github.com/eric/callit-backend/internal/adapter/handler/middleware"
+	"github.com/eric/callit-backend/internal/adapter/handler/respond"
 	"github.com/eric/callit-backend/internal/adapter/mailer"
 	"github.com/eric/callit-backend/internal/adapter/panta"
 	"github.com/eric/callit-backend/internal/adapter/repository"
@@ -30,6 +31,7 @@ func main() {
 
 	e := echo.New()
 	e.HideBanner = true
+	e.HTTPErrorHandler = respond.GlobalErrorHandler
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},

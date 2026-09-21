@@ -15,14 +15,21 @@ const UserIDContextKey = "user_id"
 func JWTMiddleware(jwtSecret string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// NOTE: every branch below goes through respond.FromError, which
+			// actually writes the JSON envelope — returning a bare *AppError
+			// here instead (as this used to) would bubble up to Echo's
+			// default error handler, which doesn't know our envelope shape
+			// and turns it into a generic 500. Caught via manual testing;
+			// scripts/smoke.sh now has an "unauthorized" case so this can't
+			// regress silently again.
 			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" {
-				return respond.Unauthorized("missing authorization header")
+				return respond.FromError(c, respond.Unauthorized("missing authorization header"))
 			}
 
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-				return respond.Unauthorized("invalid authorization format")
+				return respond.FromError(c, respond.Unauthorized("invalid authorization format"))
 			}
 
 			token, err := jwt.Parse(parts[1], func(t *jwt.Token) (any, error) {
@@ -32,16 +39,16 @@ func JWTMiddleware(jwtSecret string) echo.MiddlewareFunc {
 				return []byte(jwtSecret), nil
 			})
 			if err != nil || !token.Valid {
-				return respond.Unauthorized("invalid or expired token")
+				return respond.FromError(c, respond.Unauthorized("invalid or expired token"))
 			}
 
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
-				return respond.Unauthorized("invalid token claims")
+				return respond.FromError(c, respond.Unauthorized("invalid token claims"))
 			}
 			userID, ok := claims["user_id"].(string)
 			if !ok || userID == "" {
-				return respond.Unauthorized("user_id missing from token")
+				return respond.FromError(c, respond.Unauthorized("user_id missing from token"))
 			}
 
 			c.Set(UserIDContextKey, userID)

@@ -29,6 +29,13 @@ step "Health"
 res=$(req "$ROOT/health")
 [ "$(echo "$res" | jq -r .status)" = "ok" ] && ok "health" || fail "health: $res"
 
+step "Unauthorized (no token) — must be a proper 401 envelope, not a bare 500"
+code=$(curl -sS -o /tmp/callit-smoke-unauth.json -w "%{http_code}" "$BASE/me")
+body=$(cat /tmp/callit-smoke-unauth.json)
+[ "$code" = "401" ] && echo "$body" | jq -e '.error.code == "UNAUTHORIZED"' > /dev/null \
+  && ok "401 with unified envelope" \
+  || fail "expected 401 {error:{code:UNAUTHORIZED}}, got $code: $body"
+
 step "Register"
 res=$(req -X POST "$BASE/auth/register" -d "{\"name\":\"Smoke Test\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
 echo "$res" | jq -e .data.message > /dev/null && ok "registered $EMAIL" || fail "register: $res"
