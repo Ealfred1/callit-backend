@@ -1,5 +1,7 @@
 .env
 bin/
+/api
+/migrate
 *.log
 static/share-cards/*.png
 .DS_Store
