@@ -10,10 +10,12 @@ info:
     "message", "fields"}}` on failure. Auth is a bearer JWT from
     `/auth/verify` or `/auth/login`.
 servers:
+  - url: https://trek-grateful-formatting-specifies.trycloudflare.com/v1
+    description: live cloudflare tunnel (public HTTPS)
+  - url: http://quirky-comet.62-171-156-198.sslip.io:8095/v1
+    description: eric VPS (on-box / internal)
   - url: http://localhost:8095/v1
     description: local dev
-  - url: http://quirky-comet.62-171-156-198.sslip.io:8095/v1
-    description: eric VPS (no TLS yet, port not yet opened externally — see docs/NOTES.md)
 
 tags:
   - name: Auth
@@ -181,6 +183,13 @@ paths:
       tags: [Markets]
       summary: Catalog trade tape for a market
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+
+  /wallets/{wallet}/trades:
+    get:
+      tags: [Markets]
+      summary: Trade tape for a specific wallet
+      parameters: [{ name: wallet, in: path, required: true, schema: { type: string } }]
       responses: { "200": { description: OK } }
 
   /categories:

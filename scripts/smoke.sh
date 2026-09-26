@@ -62,7 +62,7 @@ RES_TIME=$(echo "$res" | jq -r .data.resolutionTime)
 [ "$QUESTION" != "null" ] && ok "draft: $QUESTION" || fail "ai/compile: $res"
 
 step "Create community"
-res=$(authed -X POST "$BASE/communities" -d '{"name":"Smoke Test Community"}')
+res=$(authed -X POST "$BASE/communities" -d "{\"name\":\"Smoke Community $(date +%s)\"}")
 COMMUNITY_ID=$(echo "$res" | jq -r .data.id)
 [ "$COMMUNITY_ID" != "null" ] && ok "community: $COMMUNITY_ID" || fail "communities: $res"
 

@@ -62,6 +62,20 @@ func (s *CommunityService) Create(ctx context.Context, creatorUserID, name strin
 		}
 		slug = base + "-" + strconv.Itoa(attempt+1)
 	}
+	// Fallback to random suffix if sequential numeric suffixes are exhausted
+	for attempt := 0; attempt < 5; attempt++ {
+		randSlug := base + "-" + uuid.New().String()[:8]
+		c := &domain.Community{
+			Name: strings.TrimSpace(name), Slug: randSlug, AttributionID: "cty_" + randSlug, CreatorUserID: creatorUUID,
+		}
+		err := s.communities.Create(ctx, c)
+		if err == nil {
+			return c, nil
+		}
+		if !strings.Contains(err.Error(), "duplicate key") {
+			return nil, err
+		}
+	}
 	return nil, respond.NewAppError(500, "DB_ERROR", "could not allocate a unique community slug")
 }
 
