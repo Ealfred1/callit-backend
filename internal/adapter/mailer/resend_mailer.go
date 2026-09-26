@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -57,8 +58,9 @@ func (r *resendEmailService) SendVerificationEmail(toEmail, code string) error {
 	defer res.Body.Close()
 
 	if res.StatusCode >= 300 {
-		r.logger.Error("resend send failed", "status", res.StatusCode)
-		return fmt.Errorf("resend API error: status %d", res.StatusCode)
+		respBytes, _ := io.ReadAll(res.Body)
+		r.logger.Error("resend send failed", "status", res.StatusCode, "body", string(respBytes))
+		return fmt.Errorf("resend API error (%d): %s", res.StatusCode, string(respBytes))
 	}
 	return nil
 }

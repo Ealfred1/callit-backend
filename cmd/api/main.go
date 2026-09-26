@@ -72,13 +72,16 @@ func main() {
 		logger.Warn("Panta client: MOCK — set PANTA_MOCK=false with a real PANTA_API_KEY for production")
 	}
 
-	// ── AI compiler (real Anthropic if AI_MOCK=false, else deterministic) ─
+	// ── AI compiler (Groq if GROQ_API_KEY set, Anthropic if ANTHROPIC_API_KEY set, else Mock) ─
 	compiler := ai.NewMockCompiler()
-	if !cfg.AIMock {
+	if !cfg.AIMock && cfg.GroqAPIKey != "" {
+		compiler = ai.NewGroqCompiler(cfg.GroqAPIKey, cfg.GroqModel)
+		logger.Info("AI compiler: live Groq", "model", cfg.GroqModel)
+	} else if !cfg.AIMock && cfg.AnthropicAPIKey != "" {
 		compiler = ai.NewAnthropicCompiler(cfg.AnthropicAPIKey, cfg.AnthropicModel)
-		logger.Info("AI compiler: live", "model", cfg.AnthropicModel)
+		logger.Info("AI compiler: live Anthropic", "model", cfg.AnthropicModel)
 	} else {
-		logger.Warn("AI compiler: MOCK — set AI_MOCK=false with a real ANTHROPIC_API_KEY for production")
+		logger.Warn("AI compiler: MOCK — set GROQ_API_KEY (or ANTHROPIC_API_KEY) with AI_MOCK=false for production")
 	}
 
 	// ── Services ─────────────────────────────────────────────────────────

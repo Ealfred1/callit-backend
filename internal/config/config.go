@@ -19,6 +19,8 @@ type Config struct {
 
 	AnthropicAPIKey string
 	AnthropicModel  string
+	GroqAPIKey      string
+	GroqModel       string
 	AIMock          bool
 
 	ResendAPIKey      string
@@ -54,6 +56,8 @@ func Load() *Config {
 
 		AnthropicAPIKey: getEnv("ANTHROPIC_API_KEY", ""),
 		AnthropicModel:  getEnv("ANTHROPIC_MODEL", "claude-sonnet-5"),
+		GroqAPIKey:      getEnv("GROQ_API_KEY", ""),
+		GroqModel:       getEnv("GROQ_MODEL", "llama-3.3-70b-versatile"),
 		AIMock:          getEnv("AI_MOCK", "true") == "true",
 
 		ResendAPIKey:      getEnv("RESEND_API_KEY", ""),
