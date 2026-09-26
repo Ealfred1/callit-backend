@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT="${BASE_URL:-http://localhost:8095}"
 BASE="$ROOT/v1"
-EMAIL="smoke-$(date +%s)@example.com"
+EMAIL="${SMOKE_EMAIL:-delivered+smoke$(date +%s)@resend.dev}"
 PASSWORD="a-strong-password"
 FAIL=0
 
