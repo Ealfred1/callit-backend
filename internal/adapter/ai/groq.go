@@ -22,7 +22,7 @@ type groqCompiler struct {
 // (OpenAI-compatible /chat/completions) using models like llama-3.3-70b-versatile.
 func NewGroqCompiler(apiKey, model string) ports.MarketCompiler {
 	if model == "" {
-		model = "llama-3.3-70b-versatile"
+		model = "qwen/qwen3.8-27b"
 	}
 	return &groqCompiler{apiKey: apiKey, model: model, http: http.DefaultClient}
 }
