@@ -76,6 +76,11 @@ func (s *AuthService) Verify(ctx context.Context, email, code string) (*domain.U
 		return nil, err
 	}
 	user.Status = domain.UserStatusActive
+
+	go func() {
+		_ = s.email.SendWelcomeEmail(user.Email, user.Name)
+	}()
+
 	return user, nil
 }
 

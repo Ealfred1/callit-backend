@@ -2,14 +2,19 @@ package mailer
 
 import (
 	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/eric/callit-backend/internal/core/ports"
 )
+
+//go:embed templates/*.html
+var templatesFS embed.FS
 
 // Real sender via Resend (https://resend.com) — picked at boot only when
 // RESEND_API_KEY is set (see cmd/api/main.go), same swap pattern as
@@ -32,12 +37,24 @@ type resendPayload struct {
 	Html    string   `json:"html"`
 }
 
-func (r *resendEmailService) SendVerificationEmail(toEmail, code string) error {
+func renderTemplate(filename string, vars map[string]string) (string, error) {
+	b, err := templatesFS.ReadFile("templates/" + filename)
+	if err != nil {
+		return "", err
+	}
+	content := string(b)
+	for k, v := range vars {
+		content = strings.ReplaceAll(content, "{{"+k+"}}", v)
+	}
+	return content, nil
+}
+
+func (r *resendEmailService) send(toEmail, subject, html string) error {
 	payload := resendPayload{
 		From:    fmt.Sprintf("%s <%s>", r.senderName, r.senderEmail),
 		To:      []string{toEmail},
-		Subject: fmt.Sprintf("%s is your Callit code", code),
-		Html:    fmt.Sprintf(`<p>Your Callit verification code is <strong>%s</strong>. It expires in 10 minutes.</p>`, code),
+		Subject: subject,
+		Html:    html,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -63,4 +80,55 @@ func (r *resendEmailService) SendVerificationEmail(toEmail, code string) error {
 		return fmt.Errorf("resend API error (%d): %s", res.StatusCode, string(respBytes))
 	}
 	return nil
+}
+
+func (r *resendEmailService) SendVerificationEmail(toEmail, code string) error {
+	html, err := renderTemplate("login.html", map[string]string{
+		"verification_code": code,
+		"support_email":     r.senderEmail,
+	})
+	if err != nil {
+		r.logger.Error("failed to render login.html", "error", err)
+		html = fmt.Sprintf(`<p>Your Callit verification code is <strong>%s</strong>. It expires in 10 minutes.</p>`, code)
+	}
+	return r.send(toEmail, fmt.Sprintf("%s is your Callit verification code", code), html)
+}
+
+func (r *resendEmailService) SendWelcomeEmail(toEmail, name string) error {
+	firstName := strings.TrimSpace(name)
+	if parts := strings.Fields(firstName); len(parts) > 0 {
+		firstName = parts[0]
+	}
+	if firstName == "" {
+		firstName = "there"
+	}
+	html, err := renderTemplate("welcome.html", map[string]string{
+		"first_name":       firstName,
+		"app_link":         "https://callit.my",
+		"support_email":    r.senderEmail,
+		"unsubscribe_link": "https://callit.my/unsubscribe",
+	})
+	if err != nil {
+		r.logger.Error("failed to render welcome.html", "error", err)
+		html = fmt.Sprintf(`<p>Welcome to Callit, %s! Your account is ready.</p>`, firstName)
+	}
+	return r.send(toEmail, "Welcome to Callit", html)
+}
+
+func (r *resendEmailService) SendGenericEmail(toEmail, subject, heading, body, buttonLabel, buttonUrl string) error {
+	html, err := renderTemplate("layout.html", map[string]string{
+		"preheader":        heading,
+		"heading":          heading,
+		"body":             body,
+		"button_label":     buttonLabel,
+		"button_url":       buttonUrl,
+		"app_link":         buttonUrl,
+		"support_email":    r.senderEmail,
+		"unsubscribe_link": "https://callit.my/unsubscribe",
+	})
+	if err != nil {
+		r.logger.Error("failed to render layout.html", "error", err)
+		html = fmt.Sprintf(`<h2>%s</h2><p>%s</p>`, heading, body)
+	}
+	return r.send(toEmail, subject, html)
 }

@@ -21,3 +21,14 @@ func (m *mockEmailService) SendVerificationEmail(toEmail, code string) error {
 	m.logger.Info("MOCK email — verification code", "to", toEmail, "code", code)
 	return nil
 }
+
+func (m *mockEmailService) SendWelcomeEmail(toEmail, name string) error {
+	m.logger.Info("MOCK email — welcome email", "to", toEmail, "name", name)
+	return nil
+}
+
+func (m *mockEmailService) SendGenericEmail(toEmail, subject, heading, body, buttonLabel, buttonUrl string) error {
+	m.logger.Info("MOCK email — generic email", "to", toEmail, "subject", subject, "heading", heading)
+	return nil
+}
+

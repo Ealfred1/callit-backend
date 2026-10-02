@@ -19,4 +19,7 @@ type UserRepository interface {
 
 type EmailService interface {
 	SendVerificationEmail(toEmail, code string) error
+	SendWelcomeEmail(toEmail, name string) error
+	SendGenericEmail(toEmail, subject, heading, body, buttonLabel, buttonUrl string) error
 }
+
