@@ -138,11 +138,13 @@ func (c *realClient) GetMarketTrades(ctx context.Context, marketID string) (any,
 }
 
 func (c *realClient) GetCategories(ctx context.Context) ([]domain.Category, error) {
-	var out []domain.Category
-	if err := c.call(ctx, http.MethodGet, "categories", nil, &out, nil); err != nil {
+	var resp struct {
+		Categories []domain.Category `json:"categories"`
+	}
+	if err := c.call(ctx, http.MethodGet, "categories", nil, &resp, nil); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return resp.Categories, nil
 }
 
 func (c *realClient) GetWalletTrades(ctx context.Context, wallet string) (any, error) {
