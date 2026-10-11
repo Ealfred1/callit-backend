@@ -27,6 +27,11 @@ type Config struct {
 	ResendSenderEmail string
 	ResendSenderName  string
 
+	FossapayAPIBase       string
+	FossapayAPIKey        string
+	FossapayWebhookSecret string
+	FossapayMock          bool
+
 	StaticDir string // where generated share-card PNGs are written/served from
 	PublicURL string // base URL this server is reachable at, for share links
 }
@@ -63,6 +68,11 @@ func Load() *Config {
 		ResendAPIKey:      getEnv("RESEND_API_KEY", ""),
 		ResendSenderEmail: getEnv("RESEND_SENDER_EMAIL", "onboarding@resend.dev"),
 		ResendSenderName:  getEnv("RESEND_SENDER_NAME", "Callit"),
+
+		FossapayAPIBase:       getEnv("FOSSAPAY_API_BASE", "https://api-production.fossapay.com/api/v1"),
+		FossapayAPIKey:        getEnv("FOSSAPAY_API_KEY", ""),
+		FossapayWebhookSecret: getEnv("FOSSAPAY_WEBHOOK_SECRET", ""),
+		FossapayMock:          getEnv("FOSSAPAY_MOCK", "false") == "true",
 
 		StaticDir: getEnv("STATIC_DIR", "./static"),
 		PublicURL: getEnv("PUBLIC_URL", "http://localhost:8095"),

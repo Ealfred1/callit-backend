@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/eric/callit-backend/internal/adapter/ai"
+	"github.com/eric/callit-backend/internal/adapter/fossapay"
 	"github.com/eric/callit-backend/internal/adapter/handler"
 	authmw "github.com/eric/callit-backend/internal/adapter/handler/middleware"
 	"github.com/eric/callit-backend/internal/adapter/handler/respond"
@@ -17,6 +18,7 @@ import (
 	"github.com/eric/callit-backend/internal/adapter/panta"
 	"github.com/eric/callit-backend/internal/adapter/repository"
 	"github.com/eric/callit-backend/internal/config"
+	"github.com/eric/callit-backend/internal/core/ports"
 	"github.com/eric/callit-backend/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -53,6 +55,7 @@ func main() {
 	communityRepo := repository.NewCommunityRepository(dbPool)
 	createSessionRepo := repository.NewCreateSessionRepository(dbPool)
 	marketMetaRepo := repository.NewMarketMetaRepository(dbPool)
+	fundingRepo := repository.NewFundingRepository(dbPool)
 
 	// ── Email (real Resend if configured, else logs the code) ──────────
 	var emailService = mailer.NewMockEmailService(logger)
@@ -70,6 +73,15 @@ func main() {
 		logger.Info("Panta client: live", "base", cfg.PantaAPIBase)
 	} else {
 		logger.Warn("Panta client: MOCK — set PANTA_MOCK=false with a real PANTA_API_KEY for production")
+	}
+
+	// ── FossaPay client (real if !cfg.FossapayMock && cfg.FossapayAPIKey != "", else mock) ─
+	var fossapayClient ports.FossapayClient = fossapay.NewMockClient()
+	if !cfg.FossapayMock && cfg.FossapayAPIKey != "" {
+		fossapayClient = fossapay.NewRealClient(cfg.FossapayAPIBase, cfg.FossapayAPIKey)
+		logger.Info("FossaPay client: live", "base", cfg.FossapayAPIBase)
+	} else {
+		logger.Warn("FossaPay client: MOCK — set FOSSAPAY_API_KEY for production")
 	}
 
 	// ── AI compiler (Groq if GROQ_API_KEY set, Anthropic if ANTHROPIC_API_KEY set, else Mock) ─
@@ -90,6 +102,7 @@ func main() {
 	marketCreateSvc := service.NewMarketCreateService(pantaClient, compiler, createSessionRepo, marketMetaRepo, communityRepo)
 	orderSvc := service.NewOrderService(pantaClient, communitySvc)
 	shareCardSvc := service.NewShareCardService(pantaClient, marketMetaRepo, cfg.StaticDir, cfg.PublicURL)
+	fundingSvc := service.NewFundingService(fundingRepo, userRepo, fossapayClient, cfg.FossapayWebhookSecret, logger)
 
 	// ── Handlers ─────────────────────────────────────────────────────────
 	authH := handler.NewAuthHandler(authSvc, cfg.JWTSecret)
@@ -102,6 +115,7 @@ func main() {
 	communityH := handler.NewCommunityHandler(communitySvc)
 	shareCardH := handler.NewShareCardHandler(shareCardSvc)
 	meH := handler.NewMeHandler(marketMetaRepo, pantaClient)
+	fundingH := handler.NewFundingHandler(fundingSvc)
 
 	// ── Static + docs + health ───────────────────────────────────────────
 	e.Static("/static", cfg.StaticDir)
@@ -142,6 +156,7 @@ func main() {
 	v1.GET("/communities", communityH.List)
 	v1.GET("/communities/:id", communityH.Get)
 	v1.GET("/share/:marketId", shareCardH.Unfurl)
+	v1.POST("/funding/webhook", fundingH.HandleWebhook)
 
 	// Protected
 	protected := v1.Group("")
@@ -170,6 +185,9 @@ func main() {
 
 	protected.POST("/communities", communityH.Create)
 	protected.POST("/share-card", shareCardH.Render)
+
+	protected.POST("/funding/checkout", fundingH.CreateCheckout)
+	protected.GET("/funding/checkout/:reference", fundingH.GetCheckoutStatus)
 
 	// ── Start + graceful shutdown ────────────────────────────────────────
 	shutCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
