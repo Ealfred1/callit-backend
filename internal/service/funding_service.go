@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/eric/callit-backend/internal/core/domain"
@@ -59,6 +60,7 @@ func (s *FundingService) CreateCheckout(ctx context.Context, userIDStr string, r
 	amountWhole := int64(req.AmountNGN)
 	estimatedUSDC := float64(amountWhole) / ngnPerUsdc
 
+	phone := normalizePhoneNumber(req.PhoneNumber)
 	fpReq := domain.FossapayCreateCheckoutReq{
 		Amount:    amountWhole,
 		Currency:  "NGN",
@@ -67,7 +69,7 @@ func (s *FundingService) CreateCheckout(ctx context.Context, userIDStr string, r
 		Customer: domain.FossapayCustomer{
 			Name:        user.Name,
 			Email:       user.Email,
-			PhoneNumber: req.PhoneNumber,
+			PhoneNumber: phone,
 		},
 		Metadata: map[string]any{
 			"userId":        user.ID.String(),
@@ -192,3 +194,25 @@ func (s *FundingService) HandleWebhook(ctx context.Context, rawBody []byte, sign
 
 	return nil
 }
+
+func normalizePhoneNumber(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return ""
+	}
+	p = strings.ReplaceAll(p, " ", "")
+	p = strings.ReplaceAll(p, "-", "")
+	p = strings.ReplaceAll(p, "(", "")
+	p = strings.ReplaceAll(p, ")", "")
+	if strings.HasPrefix(p, "+") {
+		return p
+	}
+	if strings.HasPrefix(p, "0") && len(p) == 11 {
+		return "+234" + p[1:]
+	}
+	if strings.HasPrefix(p, "234") {
+		return "+" + p
+	}
+	return ""
+}
+
