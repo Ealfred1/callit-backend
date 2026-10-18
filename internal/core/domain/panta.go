@@ -15,6 +15,7 @@ const (
 	CategoryFinance       Category = "finance"
 	CategoryScience       Category = "science"
 	CategoryWorld         Category = "world"
+	CategoryTech          Category = "tech"
 	CategoryOther         Category = "other"
 )
 

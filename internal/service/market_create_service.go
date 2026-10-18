@@ -53,9 +53,28 @@ func (s *MarketCreateService) Compile(ctx context.Context, text string) (*Compil
 	return &CompileResult{Draft: draft, StartTime: ts.StartTime, EndTime: ts.EndTime, ResolutionTime: ts.ResolutionTime}, nil
 }
 
+var defaultCategoryImages = map[domain.Category]string{
+	domain.CategoryCrypto:        "https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=1200",
+	domain.CategorySports:        "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200",
+	domain.CategoryPolitics:      "https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=1200",
+	domain.CategoryFinance:       "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200",
+	domain.CategoryTech:          "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200",
+	domain.CategoryEntertainment: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200",
+	domain.CategoryScience:       "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200",
+	domain.CategoryWorld:         "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=1200",
+}
+
 func (s *MarketCreateService) Quote(ctx context.Context, creatorUserID string, req domain.CreateQuoteRequest, communityID string) (*domain.CreateQuoteResponse, error) {
 	if req.Wallet == "" {
 		return nil, respond.BadRequest("INVALID_MARKET_PARAMS", "wallet is required")
+	}
+
+	if strings.TrimSpace(req.ImageURL) == "" {
+		if fallback, ok := defaultCategoryImages[req.Category]; ok {
+			req.ImageURL = fallback
+		} else {
+			req.ImageURL = defaultCategoryImages[domain.CategoryCrypto]
+		}
 	}
 
 	var communityUUID *uuid.UUID
