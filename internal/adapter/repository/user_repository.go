@@ -29,6 +29,7 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	if err != nil {
 		return fmt.Errorf("create user: %w", err)
 	}
+	user.WalletAddress = domain.DeriveSolanaAddress(user.ID.String())
 	return nil
 }
 
@@ -40,6 +41,7 @@ func (r *userRepository) scanUser(row interface {
 	if err != nil {
 		return nil, err
 	}
+	user.WalletAddress = domain.DeriveSolanaAddress(user.ID.String())
 	return user, nil
 }
 
