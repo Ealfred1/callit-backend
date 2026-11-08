@@ -15,6 +15,7 @@ import (
 	authmw "github.com/eric/callit-backend/internal/adapter/handler/middleware"
 	"github.com/eric/callit-backend/internal/adapter/handler/respond"
 	"github.com/eric/callit-backend/internal/adapter/mailer"
+	"github.com/eric/callit-backend/internal/adapter/nearintents"
 	"github.com/eric/callit-backend/internal/adapter/panta"
 	"github.com/eric/callit-backend/internal/adapter/repository"
 	"github.com/eric/callit-backend/internal/config"
@@ -104,6 +105,11 @@ func main() {
 	shareCardSvc := service.NewShareCardService(pantaClient, marketMetaRepo, cfg.StaticDir, cfg.PublicURL)
 	fundingSvc := service.NewFundingService(fundingRepo, userRepo, fossapayClient, cfg.FossapayWebhookSecret, logger)
 
+	// ── NEAR Intents & AI Truth Synthesis (NEAR Hackathon) ──────────────
+	nearIntentsClient := nearintents.NewRealClient("")
+	nearIntentsSvc := service.NewNearIntentsService(nearIntentsClient, userRepo, logger)
+	truthSynthesisSvc := service.NewTruthSynthesisService(pantaClient)
+
 	// ── Handlers ─────────────────────────────────────────────────────────
 	authH := handler.NewAuthHandler(authSvc, cfg.JWTSecret)
 	marketsH := handler.NewMarketsHandler(pantaClient)
@@ -116,6 +122,8 @@ func main() {
 	shareCardH := handler.NewShareCardHandler(shareCardSvc)
 	meH := handler.NewMeHandler(marketMetaRepo, pantaClient)
 	fundingH := handler.NewFundingHandler(fundingSvc)
+	nearIntentsH := handler.NewNearIntentsHandler(nearIntentsSvc)
+	truthSynthesisH := handler.NewTruthSynthesisHandler(truthSynthesisSvc)
 
 	// ── Static + docs + health ───────────────────────────────────────────
 	e.Static("/static", cfg.StaticDir)
@@ -158,6 +166,11 @@ func main() {
 	v1.GET("/share/:marketId", shareCardH.Unfurl)
 	v1.POST("/funding/webhook", fundingH.HandleWebhook)
 
+	// NEAR Intents & AI Truth Consensus (NEAR Hackathon)
+	v1.GET("/near/tokens", nearIntentsH.Tokens)
+	v1.GET("/near/deposit/status", nearIntentsH.Status)
+	v1.GET("/markets/:id/truth-consensus", truthSynthesisH.GetMarketTruthConsensus)
+
 	// Protected
 	protected := v1.Group("")
 	protected.Use(authmw.JWTMiddleware(cfg.JWTSecret))
@@ -188,6 +201,7 @@ func main() {
 
 	protected.POST("/funding/checkout", fundingH.CreateCheckout)
 	protected.GET("/funding/checkout/:reference", fundingH.GetCheckoutStatus)
+	protected.POST("/near/deposit/quote", nearIntentsH.Quote)
 
 	// ── Start + graceful shutdown ────────────────────────────────────────
 	shutCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
