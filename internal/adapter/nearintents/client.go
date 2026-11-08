@@ -144,7 +144,11 @@ func (c *realClient) CreateQuote(ctx context.Context, req domain.NearIntentQuote
 
 	refundTo := req.RefundTo
 	if refundTo == "" {
-		refundTo = req.Recipient
+		if strings.Contains(originAsset, "near") {
+			refundTo = "alice.near" // default fallback NEAR account if user hasn't specified custom refund
+		} else {
+			refundTo = req.Recipient
+		}
 	}
 
 	deadline := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
