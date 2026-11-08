@@ -1,6 +1,10 @@
 package handler
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	"github.com/eric/callit-backend/internal/adapter/handler/respond"
 	"github.com/eric/callit-backend/internal/core/domain"
 	"github.com/eric/callit-backend/internal/core/ports"
@@ -11,7 +15,8 @@ import (
 // catalog endpoints (PRD "Market feed and detail") — the API key stays
 // server-side either way.
 type MarketsHandler struct {
-	panta ports.PantaClient
+	panta      ports.PantaClient
+	titleCache sync.Map // marketID (string) -> title (string)
 }
 
 func NewMarketsHandler(panta ports.PantaClient) *MarketsHandler {
@@ -30,6 +35,42 @@ func (h *MarketsHandler) List(c echo.Context) error {
 	if err != nil {
 		return respond.FromError(c, err)
 	}
+
+	// Panta's catalog list often returns empty title and description, while
+	// the detail endpoint contains the actual question. Enrich missing titles
+	// concurrently with in-memory caching.
+	var wg sync.WaitGroup
+	for i := range res.Items {
+		item := &res.Items[i]
+		if item.Title != "" {
+			h.titleCache.Store(item.MarketID, item.Title)
+			continue
+		}
+		if cached, ok := h.titleCache.Load(item.MarketID); ok {
+			item.Title = cached.(string)
+			continue
+		}
+
+		wg.Add(1)
+		go func(it *domain.MarketListItem) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			det, err := h.panta.GetMarket(ctx, it.MarketID)
+			if err == nil && det != nil {
+				title := det.Title
+				if title == "" && det.Description != nil {
+					title = *det.Description
+				}
+				if title != "" {
+					it.Title = title
+					h.titleCache.Store(it.MarketID, title)
+				}
+			}
+		}(item)
+	}
+	wg.Wait()
+
 	return respond.OK(c, res)
 }
 
@@ -37,6 +78,9 @@ func (h *MarketsHandler) Get(c echo.Context) error {
 	res, err := h.panta.GetMarket(c.Request().Context(), c.Param("id"))
 	if err != nil {
 		return respond.FromError(c, err)
+	}
+	if res != nil && res.Title != "" {
+		h.titleCache.Store(res.MarketID, res.Title)
 	}
 	return respond.OK(c, res)
 }
