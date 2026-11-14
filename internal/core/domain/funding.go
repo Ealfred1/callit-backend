@@ -25,6 +25,7 @@ type FundingTransaction struct {
 	AmountPayableNGN float64        `json:"amountPayableNgn"`
 	EstimatedUSDC    float64        `json:"estimatedUsdc"`
 	Status           FundingStatus  `json:"status"`
+	Payout           *PayoutInfo    `json:"payout,omitempty"`
 	BankName         string         `json:"bankName"`
 	AccountName      string         `json:"accountName"`
 	AccountNumber    string         `json:"accountNumber"`
@@ -108,4 +109,12 @@ type FossapayWebhookPayload struct {
 	EventType string         `json:"eventType"`
 	Data      map[string]any `json:"data"`
 	Timestamp string         `json:"timestamp"`
+}
+
+// PayoutInfo is the USDC payout state shown to the app.
+type PayoutInfo struct {
+	Status    string  `json:"status"` // none, sending, paid, retry, waiting_treasury, failed
+	Signature string  `json:"signature,omitempty"`
+	USDC      float64 `json:"usdc,omitempty"`
+	Error     string  `json:"error,omitempty"`
 }

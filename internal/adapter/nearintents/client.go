@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -142,13 +143,12 @@ func (c *realClient) CreateQuote(ctx context.Context, req domain.NearIntentQuote
 		slippage = 100 // 1%
 	}
 
-	refundTo := req.RefundTo
-	if refundTo == "" {
-		if strings.Contains(originAsset, "near") {
-			refundTo = "alice.near" // default fallback NEAR account if user hasn't specified custom refund
-		} else {
-			refundTo = req.Recipient
-		}
+	// The refund address must belong to the user, on the chain they are paying from.
+	// Never invent one: a wrong address sends refunds to someone else, and a
+	// Solana address is not valid for an Ethereum or NEAR deposit.
+	refundTo := strings.TrimSpace(req.RefundTo)
+	if err := ValidateRefundAddress(originAsset, refundTo); err != nil {
+		return nil, err
 	}
 
 	deadline := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
@@ -324,4 +324,54 @@ func parseAmountToBaseUnits(formatted string, decimals int) string {
 	n := new(big.Int)
 	n.SetString(combined, 10)
 	return n.String()
+}
+
+var (
+	reNearAccount  = regexp.MustCompile(`^([a-z0-9]+([_-][a-z0-9]+)*\.)*[a-z0-9]+([_-][a-z0-9]+)*$`)
+	reNearImplicit = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	reEVM          = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
+	reBase58       = regexp.MustCompile(`^[1-9A-HJ-NP-Za-km-z]{32,44}$`)
+)
+
+// chainOfAsset names the chain a 1Click origin asset lives on.
+func chainOfAsset(assetID string) string {
+	a := strings.ToLower(assetID)
+	switch {
+	case strings.Contains(a, "sol.omft") || strings.Contains(a, "sol-"):
+		return "solana"
+	case strings.Contains(a, "base") || strings.Contains(a, "eth") || strings.Contains(a, "arb") || strings.Contains(a, "0x"):
+		return "evm"
+	case strings.Contains(a, "near"):
+		return "near"
+	default:
+		return ""
+	}
+}
+
+// ValidateRefundAddress checks that addr is a plausible refund address on the
+// origin asset's chain, with an error message the app can show as-is.
+func ValidateRefundAddress(originAsset, addr string) error {
+	chain := chainOfAsset(originAsset)
+	label := map[string]string{"near": "NEAR account (like you.near)", "evm": "wallet address (starts with 0x)", "solana": "Solana wallet address"}[chain]
+	if addr == "" {
+		if label == "" {
+			label = "address on the chain you are sending from"
+		}
+		return fmt.Errorf("refund address is required: enter your %s so funds come back to you if the swap fails", label)
+	}
+	switch chain {
+	case "near":
+		if !(reNearImplicit.MatchString(addr) || (len(addr) >= 2 && len(addr) <= 64 && reNearAccount.MatchString(addr))) {
+			return fmt.Errorf("that is not a valid NEAR account. Use your own account, for example you.near")
+		}
+	case "evm":
+		if !reEVM.MatchString(addr) {
+			return fmt.Errorf("that is not a valid wallet address. Use your own address on the chain you are sending from (0x followed by 40 characters)")
+		}
+	case "solana":
+		if !reBase58.MatchString(addr) {
+			return fmt.Errorf("that is not a valid Solana address")
+		}
+	}
+	return nil
 }

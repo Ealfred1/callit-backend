@@ -133,3 +133,33 @@ func (r *fundingRepository) UpdateStatus(ctx context.Context, reference string, 
 	`, string(status), completedAt, now, reference)
 	return err
 }
+
+// ListPending returns checkouts still waiting for a bank transfer, newest first.
+func (r *fundingRepository) ListPending(ctx context.Context, newerThan time.Time, limit int) ([]*domain.FundingTransaction, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT id, user_id, wallet_address, reference, checkout_id,
+		       amount_ngn, amount_payable_ngn, estimated_usdc, status,
+		       bank_name, account_name, account_number, expires_at,
+		       completed_at, metadata, created_at, updated_at
+		FROM funding_transactions
+		WHERE status = 'pending' AND created_at > $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`, newerThan, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*domain.FundingTransaction
+	for rows.Next() {
+		tx, err := r.scanTx(rows)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, tx)
+	}
+	return list, nil
+}

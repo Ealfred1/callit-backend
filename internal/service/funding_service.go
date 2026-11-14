@@ -20,6 +20,8 @@ type FundingService struct {
 	fossapay      ports.FossapayClient
 	webhookSecret string
 	logger        *slog.Logger
+	payer         ports.Payer
+	maxPayout     float64
 }
 
 func NewFundingService(
@@ -137,15 +139,21 @@ func (s *FundingService) GetCheckoutStatus(ctx context.Context, reference string
 	if tx.Status == domain.FundingStatusPending {
 		fpResp, err := s.fossapay.GetCheckoutByReference(ctx, reference)
 		if err == nil && fpResp != nil && fpResp.Data.Status != "" {
-			newStatus := domain.FundingStatus(fpResp.Data.Status)
+			newStatus := normalizeFundingStatus(fpResp.Data.Status, tx.Status)
 			if newStatus != tx.Status {
 				tx.Status = newStatus
 				tx.CompletedAt = fpResp.Data.CompletedAt
 				_ = s.fundingRepo.UpdateStatus(ctx, reference, newStatus, tx.CompletedAt)
+				if newStatus == domain.FundingStatusCompleted {
+					go s.TryPayout(context.Background(), reference)
+				}
 			}
 		}
 	}
 
+	if info, err := s.fundingRepo.GetPayoutInfo(ctx, reference); err == nil {
+		tx.Payout = info
+	}
 	return tx, nil
 }
 
@@ -178,6 +186,7 @@ func (s *FundingService) HandleWebhook(ctx context.Context, rawBody []byte, sign
 			return err
 		}
 		s.logger.Info("funding successfully completed", "reference", ref)
+		go s.TryPayout(context.Background(), ref)
 
 	case "checkout.failed":
 		if err := s.fundingRepo.UpdateStatus(ctx, ref, domain.FundingStatusFailed, nil); err != nil {
@@ -216,3 +225,64 @@ func normalizePhoneNumber(p string) string {
 	return ""
 }
 
+// normalizeFundingStatus maps FossaPay's wording onto ours; unknown words keep the current status.
+func normalizeFundingStatus(upstream string, current domain.FundingStatus) domain.FundingStatus {
+	switch strings.ToLower(strings.TrimSpace(upstream)) {
+	case "completed", "complete", "success", "successful", "paid", "settled":
+		return domain.FundingStatusCompleted
+	case "failed", "cancelled", "canceled", "declined":
+		return domain.FundingStatusFailed
+	case "expired":
+		return domain.FundingStatusExpired
+	}
+	return current
+}
+
+// ReconcilePending asks FossaPay directly about every recent pending checkout.
+// Webhooks only work while a stable public URL is registered; this keeps
+// payment status correct even when they never arrive.
+func (s *FundingService) ReconcilePending(ctx context.Context) {
+	pending, err := s.fundingRepo.ListPending(ctx, time.Now().Add(-72*time.Hour), 50)
+	if err != nil {
+		s.logger.Error("reconcile: list pending failed", "err", err)
+		return
+	}
+	for _, tx := range pending {
+		fp, err := s.fossapay.GetCheckoutByReference(ctx, tx.Reference)
+		if err != nil || fp == nil || fp.Data.Status == "" {
+			continue
+		}
+		next := normalizeFundingStatus(fp.Data.Status, tx.Status)
+		if next == tx.Status {
+			s.logger.Info("reconcile: still waiting", "reference", tx.Reference, "upstream", fp.Data.Status, "payableNGN", tx.AmountPayableNGN)
+			continue
+		}
+		if err := s.fundingRepo.UpdateStatus(ctx, tx.Reference, next, fp.Data.CompletedAt); err != nil {
+			s.logger.Error("reconcile: update failed", "reference", tx.Reference, "err", err)
+			continue
+		}
+		s.logger.Info("reconcile: funding status changed", "reference", tx.Reference, "from", string(tx.Status), "to", string(next), "upstream", fp.Data.Status)
+		if next == domain.FundingStatusCompleted {
+			s.TryPayout(ctx, tx.Reference)
+		}
+	}
+}
+
+// StartReconciler runs ReconcilePending until ctx ends.
+func (s *FundingService) StartReconciler(ctx context.Context, every time.Duration) {
+	go func() {
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				rctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+				s.ReconcilePending(rctx)
+				s.SweepPayouts(rctx)
+				cancel()
+			}
+		}
+	}()
+}

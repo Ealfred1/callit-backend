@@ -18,6 +18,7 @@ import (
 	"github.com/eric/callit-backend/internal/adapter/nearintents"
 	"github.com/eric/callit-backend/internal/adapter/panta"
 	"github.com/eric/callit-backend/internal/adapter/repository"
+	"github.com/eric/callit-backend/internal/adapter/solanapay"
 	"github.com/eric/callit-backend/internal/config"
 	"github.com/eric/callit-backend/internal/core/ports"
 	"github.com/eric/callit-backend/internal/service"
@@ -104,6 +105,28 @@ func main() {
 	orderSvc := service.NewOrderService(pantaClient, communitySvc)
 	shareCardSvc := service.NewShareCardService(pantaClient, marketMetaRepo, cfg.StaticDir, cfg.PublicURL)
 	fundingSvc := service.NewFundingService(fundingRepo, userRepo, fossapayClient, cfg.FossapayWebhookSecret, logger)
+	if cfg.TreasurySecretKey != "" {
+		treasury, err := solanapay.NewTreasury(cfg.TreasurySecretKey, cfg.SolanaRPCURL)
+		if err != nil {
+			logger.Error("treasury disabled: bad TREASURY_SECRET_KEY", "err", err)
+		} else {
+			fundingSvc.SetPayer(treasury, cfg.PayoutMaxUSDC)
+			logger.Info("USDC payouts: on", "treasury", treasury.Address(), "maxUSDC", cfg.PayoutMaxUSDC)
+			go func() {
+				bctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				defer cancel()
+				sol, usdc, err := treasury.Balances(bctx)
+				if err != nil {
+					logger.Error("treasury balance check failed", "err", err)
+					return
+				}
+				logger.Info("treasury balance", "sol", sol, "usdc", usdc, "address", treasury.Address())
+			}()
+		}
+	} else {
+		logger.Warn("USDC payouts: off, set TREASURY_SECRET_KEY to send USDC after a naira payment")
+	}
+	fundingSvc.StartReconciler(context.Background(), 20*time.Second)
 
 	// ── NEAR Intents & AI Truth Synthesis (NEAR Hackathon) ──────────────
 	nearIntentsClient := nearintents.NewRealClient("")
@@ -124,6 +147,7 @@ func main() {
 	fundingH := handler.NewFundingHandler(fundingSvc)
 	nearIntentsH := handler.NewNearIntentsHandler(nearIntentsSvc)
 	truthSynthesisH := handler.NewTruthSynthesisHandler(truthSynthesisSvc)
+	walletBalanceH := handler.NewWalletBalanceHandler()
 
 	// ── Static + docs + health ───────────────────────────────────────────
 	e.Static("/static", cfg.StaticDir)
@@ -160,6 +184,7 @@ func main() {
 	v1.GET("/markets/:id", marketsH.Get)
 	v1.GET("/markets/:id/trades", marketsH.Trades)
 	v1.GET("/wallets/:wallet/trades", marketsH.WalletTrades)
+	v1.GET("/wallets/:wallet/balances", walletBalanceH.Get)
 	v1.GET("/categories", marketsH.Categories)
 	v1.GET("/communities", communityH.List)
 	v1.GET("/communities/:id", communityH.Get)

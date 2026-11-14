@@ -33,7 +33,7 @@ func (h *ShareCardHandler) Render(c echo.Context) error {
 	if err != nil {
 		return respond.FromError(c, err)
 	}
-	return respond.OK(c, map[string]string{"imageUrl": result.ImageURL, "deepLink": "callit://market/" + req.MarketID})
+	return respond.OK(c, map[string]string{"imageUrl": result.ImageURL, "deepLink": "https://callit.my/" + req.MarketID})
 }
 
 // Unfurl is public — link-preview bots (WhatsApp, Telegram, X) don't send
@@ -45,7 +45,7 @@ func (h *ShareCardHandler) Unfurl(c echo.Context) error {
 		return respond.FromError(c, err)
 	}
 
-	deepLink := "callit://market/" + marketID
+	deepLink := "https://callit.my/" + marketID
 	html := fmt.Sprintf(`<!doctype html>
 <html>
 <head>

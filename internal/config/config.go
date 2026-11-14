@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -31,6 +32,9 @@ type Config struct {
 	FossapayAPIKey        string
 	FossapayWebhookSecret string
 	FossapayMock          bool
+	TreasurySecretKey     string // base58 or JSON array; enables automatic USDC payouts
+	PayoutMaxUSDC         float64
+	SolanaRPCURL          string
 
 	StaticDir string // where generated share-card PNGs are written/served from
 	PublicURL string // base URL this server is reachable at, for share links
@@ -73,6 +77,9 @@ func Load() *Config {
 		FossapayAPIKey:        getEnv("FOSSAPAY_API_KEY", ""),
 		FossapayWebhookSecret: getEnv("FOSSAPAY_WEBHOOK_SECRET", ""),
 		FossapayMock:          getEnv("FOSSAPAY_MOCK", "false") == "true",
+		TreasurySecretKey:     getEnv("TREASURY_SECRET_KEY", ""),
+		PayoutMaxUSDC:         getEnvFloat("PAYOUT_MAX_USDC", 100),
+		SolanaRPCURL:          getEnv("SOLANA_RPC_URL", "https://solana-rpc.publicnode.com"),
 
 		StaticDir: getEnv("STATIC_DIR", "./static"),
 		PublicURL: getEnv("PUBLIC_URL", "http://localhost:8095"),
@@ -99,4 +106,13 @@ func getEnvInt(key string, fallback int) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+func getEnvFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return def
 }
