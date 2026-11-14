@@ -228,7 +228,7 @@ func normalizePhoneNumber(p string) string {
 // normalizeFundingStatus maps FossaPay's wording onto ours; unknown words keep the current status.
 func normalizeFundingStatus(upstream string, current domain.FundingStatus) domain.FundingStatus {
 	switch strings.ToLower(strings.TrimSpace(upstream)) {
-	case "completed", "complete", "success", "successful", "paid", "settled":
+	case "completed", "complete", "success", "successful", "succeeded", "paid", "settled", "approved":
 		return domain.FundingStatusCompleted
 	case "failed", "cancelled", "canceled", "declined":
 		return domain.FundingStatusFailed
@@ -249,7 +249,11 @@ func (s *FundingService) ReconcilePending(ctx context.Context) {
 	}
 	for _, tx := range pending {
 		fp, err := s.fossapay.GetCheckoutByReference(ctx, tx.Reference)
-		if err != nil || fp == nil || fp.Data.Status == "" {
+		if err != nil {
+			s.logger.Warn("reconcile: lookup failed", "reference", tx.Reference, "err", err)
+			continue
+		}
+		if fp == nil || fp.Data.Status == "" {
 			continue
 		}
 		next := normalizeFundingStatus(fp.Data.Status, tx.Status)

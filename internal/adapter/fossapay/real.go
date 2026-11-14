@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/eric/callit-backend/internal/core/domain"
 	"github.com/eric/callit-backend/internal/core/ports"
@@ -106,9 +107,54 @@ func (c *realClient) GetCheckoutByReference(ctx context.Context, reference strin
 	}
 	defer res.Body.Close()
 
-	var out domain.FossapayCheckoutResponse
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
 		return nil, err
+	}
+	if res.StatusCode >= 300 {
+		return nil, fmt.Errorf("fossapay lookup HTTP %d: %.300s", res.StatusCode, string(raw))
+	}
+	// Lenient on purpose: only the fields we need, and any timestamp shape.
+	// A strict struct once made us discard a "completed" payment.
+	var lenient struct {
+		Status     string `json:"status"`
+		StatusCode int    `json:"statusCode"`
+		Message    string `json:"message"`
+		Data       struct {
+			ID            string `json:"id"`
+			Reference     string `json:"reference"`
+			Status        string `json:"status"`
+			Amount        any    `json:"amount"`
+			AmountPayable any    `json:"amountPayable"`
+			TransactionID any    `json:"transactionId"`
+			CompletedAt   any    `json:"completedAt"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &lenient); err != nil {
+		return nil, fmt.Errorf("fossapay lookup: bad JSON: %.300s", string(raw))
+	}
+	if lenient.Data.Status == "" {
+		return nil, fmt.Errorf("fossapay lookup: no status in response: %.400s", string(raw))
+	}
+	var out domain.FossapayCheckoutResponse
+	out.Status = lenient.Status
+	out.StatusCode = lenient.StatusCode
+	out.Message = lenient.Message
+	out.Data.ID = lenient.Data.ID
+	out.Data.Reference = lenient.Data.Reference
+	out.Data.Status = lenient.Data.Status
+	out.Data.Amount = fmt.Sprint(lenient.Data.Amount)
+	out.Data.AmountPayable = fmt.Sprint(lenient.Data.AmountPayable)
+	if lenient.Data.TransactionID != nil {
+		out.Data.TransactionID = fmt.Sprint(lenient.Data.TransactionID)
+	}
+	if str, ok := lenient.Data.CompletedAt.(string); ok && str != "" {
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05"} {
+			if t, err := time.Parse(layout, str); err == nil {
+				out.Data.CompletedAt = &t
+				break
+			}
+		}
 	}
 	return &out, nil
 }
